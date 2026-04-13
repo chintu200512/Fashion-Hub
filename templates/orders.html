@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+
+{% block title %}My Orders - FashionHub{% endblock %}
+
+{% block content %}
+<style>
+    .orders-container {
+        max-width: 900px;
+        margin: 40px auto;
+        padding: 0 20px;
+    }
+    .order-card {
+        background: white;
+        border-radius: 16px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+        transition: transform 0.2s;
+    }
+    .order-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 25px rgba(0,0,0,0.12);
+    }
+    .order-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+        padding-bottom: 15px;
+        border-bottom: 2px solid #f0f0f0;
+    }
+    .order-number {
+        font-weight: 700;
+        font-size: 1.1rem;
+        color: #2c3e50;
+    }
+    .order-date {
+        color: #666;
+        font-size: 0.9rem;
+    }
+    .order-status {
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+    .status-pending { background: #fef3c7; color: #d97706; }
+    .status-confirmed { background: #dbeafe; color: #2563eb; }
+    .status-shipped { background: #e0e7ff; color: #4f46e5; }
+    .status-delivered { background: #d1fae5; color: #059669; }
+    .order-items {
+        margin: 15px 0;
+    }
+    .order-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 8px 0;
+        border-bottom: 1px solid #f0f0f0;
+    }
+    .order-total {
+        text-align: right;
+        margin-top: 15px;
+        padding-top: 15px;
+        border-top: 2px solid #f0f0f0;
+        font-weight: 700;
+        font-size: 1.1rem;
+    }
+    .btn-view {
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: white;
+        padding: 8px 20px;
+        border: none;
+        border-radius: 40px;
+        font-weight: 600;
+        text-decoration: none;
+        display: inline-block;
+    }
+    .btn-view:hover {
+        color: white;
+        transform: translateY(-2px);
+    }
+</style>
+
+<div class="orders-container">
+    <h2 class="mb-4"><i class="fas fa-box"></i> My Orders</h2>
+    
+    {% if orders %}
+        {% for order in orders %}
+        <div class="order-card">
+            <div class="order-header">
+                <div>
+                    <div class="order-number">{{ order.order_number }}</div>
+                    <div class="order-date">{{ order.created_at.strftime('%B %d, %Y at %I:%M %p') }}</div>
+                </div>
+                <div>
+                    <span class="order-status status-{{ order.status }}">{{ order.status|upper }}</span>
+                </div>
+            </div>
+            
+            <div class="order-items">
+                {% for item in order.items[:2] %}
+                <div class="order-item">
+                    <span>{{ item.name }} x {{ item.quantity }}</span>
+                    <span>₹{{ item.price * item.quantity }}</span>
+                </div>
+                {% endfor %}
+                {% if order.items|length > 2 %}
+                <div class="order-item text-muted">
+                    <span>... and {{ order.items|length - 2 }} more items</span>
+                </div>
+                {% endif %}
+            </div>
+            
+            <div class="order-total">
+                Total: ₹{{ "{:,.0f}".format(order.total_amount) }}
+            </div>
+            
+            <div class="text-end mt-3">
+                <a href="/order/{{ order._id }}" class="btn-view">View Details →</a>
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="text-center py-5">
+            <i class="fas fa-shopping-bag fa-4x mb-3" style="color: #ccc;"></i>
+            <h4>No orders yet</h4>
+            <p>Start shopping to see your orders here!</p>
+            <a href="/shop" class="btn btn-primary">Start Shopping</a>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

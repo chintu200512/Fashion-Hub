@@ -1,21 +1,21 @@
 {% extends "base.html" %}
 
-{% block title %}Login - FashionHub{% endblock %}
+{% block title %}Register - FashionHub{% endblock %}
 
 {% block content %}
 <style>
-    .login-container {
-        max-width: 450px;
+    .register-container {
+        max-width: 500px;
         margin: 60px auto;
         padding: 0 20px;
     }
-    .login-card {
+    .register-card {
         background: white;
         border-radius: 20px;
         padding: 40px;
         box-shadow: 0 10px 30px rgba(0,0,0,0.1);
     }
-    .btn-login {
+    .btn-register {
         background: linear-gradient(135deg, #667eea, #764ba2);
         color: white;
         padding: 12px;
@@ -36,9 +36,6 @@
         display: inline-block;
         text-align: center;
     }
-    .btn-google:hover {
-        background: #f8f9fa;
-    }
     .divider {
         display: flex;
         align-items: center;
@@ -57,56 +54,74 @@
     }
 </style>
 
-<div class="login-container">
-    <div class="login-card">
+<div class="register-container">
+    <div class="register-card">
         <h2 class="text-center mb-4"><i class="fas fa-tshirt"></i> FashionHub</h2>
-        <h4 class="text-center mb-4">Welcome Back!</h4>
+        <h4 class="text-center mb-4">Create Account</h4>
         
         <div id="alertMsg"></div>
         
         <div class="mb-3">
+            <input type="text" id="name" class="form-control" placeholder="Full Name">
+        </div>
+        <div class="mb-3">
             <input type="email" id="email" class="form-control" placeholder="Email Address">
         </div>
         <div class="mb-3">
-            <input type="password" id="password" class="form-control" placeholder="Password">
+            <input type="password" id="password" class="form-control" placeholder="Password (min 6 characters)">
         </div>
-        <button onclick="login()" class="btn-login">Login <i class="fas fa-arrow-right ms-2"></i></button>
+        <div class="mb-3">
+            <input type="password" id="confirmPassword" class="form-control" placeholder="Confirm Password">
+        </div>
+        <button onclick="register()" class="btn-register">Create Account <i class="fas fa-user-plus ms-2"></i></button>
         
         <div class="divider">
             <span>OR</span>
         </div>
         
         <a href="/login/google" class="btn-google">
-            <i class="fab fa-google me-2"></i> Continue with Google
+            <i class="fab fa-google me-2"></i> Sign up with Google
         </a>
         
         <div class="text-center mt-4">
-            <p>Don't have an account? <a href="/register">Register here</a></p>
+            <p>Already have an account? <a href="/login">Login here</a></p>
             <a href="/">← Back to Home</a>
         </div>
     </div>
 </div>
 
 <script>
-    async function login() {
+    async function register() {
+        const name = document.getElementById('name').value;
         const email = document.getElementById('email').value;
         const password = document.getElementById('password').value;
+        const confirm = document.getElementById('confirmPassword').value;
         
-        if (!email || !password) {
+        if (!name || !email || !password) {
             showAlert('Please fill all fields', 'danger');
             return;
         }
         
+        if (password !== confirm) {
+            showAlert('Passwords do not match', 'danger');
+            return;
+        }
+        
+        if (password.length < 6) {
+            showAlert('Password must be at least 6 characters', 'danger');
+            return;
+        }
+        
         try {
-            const res = await axios.post('/api/login', { email, password });
+            const res = await axios.post('/api/register', { name, email, password });
             if (res.data.success) {
-                showAlert('Login successful! Redirecting...', 'success');
+                showAlert(res.data.message, 'success');
                 setTimeout(() => {
-                    window.location.href = '/';
-                }, 1500);
+                    window.location.href = '/login';
+                }, 2000);
             }
         } catch (error) {
-            showAlert(error.response?.data?.message || 'Login failed', 'danger');
+            showAlert(error.response?.data?.message || 'Registration failed', 'danger');
         }
     }
     
@@ -115,9 +130,5 @@
         container.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
         setTimeout(() => container.innerHTML = '', 3000);
     }
-    
-    document.getElementById('password').addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') login();
-    });
 </script>
 {% endblock %}

@@ -1,827 +1,178 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
-</head>
 {% extends "base.html" %}
 
 {% block title %}My Profile - FashionHub{% endblock %}
 
 {% block content %}
 <style>
-    :root {
-        --primary-color: #2c3e50;
-        --secondary-color: #e74c3c;
-        --success-color: #27ae60;
-        --warning-color: #f39c12;
-        --light-color: #ecf0f1;
-        --dark-color: #2c3e50;
-        --white: #ffffff;
-        --gray: #95a5a6;
-        --shadow: 0 2px 10px rgba(0,0,0,0.1);
-        --shadow-hover: 0 5px 20px rgba(0,0,0,0.15);
-    }
-
-    /* Profile Container */
     .profile-container {
-        max-width: 1200px;
-        margin: 20px auto;
-        padding: 0 15px;
-        min-height: calc(100vh - 200px);
+        max-width: 800px;
+        margin: 40px auto;
+        padding: 0 20px;
     }
-    
-    /* Profile Header */
-    .profile-header {
-        background: linear-gradient(135deg, var(--primary-color) 0%, var(--dark-color) 100%);
+    .profile-card {
+        background: white;
         border-radius: 20px;
         padding: 30px;
-        margin-bottom: 25px;
-        text-align: center;
-        color: white;
-        position: relative;
-        overflow: hidden;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.1);
     }
-    
-    .profile-header::before {
-        content: '';
-        position: absolute;
-        top: -50%;
-        right: -50%;
-        width: 200%;
-        height: 200%;
-        background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
-        pointer-events: none;
-    }
-    
-    .profile-avatar {
+    .avatar {
         width: 100px;
         height: 100px;
-        background: white;
+        background: linear-gradient(135deg, #667eea, #764ba2);
         border-radius: 50%;
         display: flex;
         align-items: center;
         justify-content: center;
-        margin: 0 auto 15px;
+        margin: 0 auto 20px;
+    }
+    .avatar i {
         font-size: 3rem;
-        color: var(--primary-color);
-        box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        color: white;
     }
-    
-    .profile-header h2 {
-        font-size: 1.5rem;
-        margin-bottom: 5px;
-    }
-    
-    .profile-header p {
-        opacity: 0.9;
-        margin: 0;
-        font-size: 0.9rem;
-    }
-    
-    /* Profile Sections */
-    .profile-section {
-        background: white;
-        border-radius: 15px;
-        padding: 20px;
-        margin-bottom: 20px;
-        box-shadow: var(--shadow);
-        transition: transform 0.3s ease, box-shadow 0.3s ease;
-    }
-    
-    .profile-section:hover {
-        box-shadow: var(--shadow-hover);
-    }
-    
-    .section-title {
-        font-size: 1.2rem;
+    .verified-badge {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.8rem;
         font-weight: 600;
-        color: var(--primary-color);
-        margin-bottom: 20px;
-        padding-bottom: 10px;
-        border-bottom: 2px solid var(--light-color);
-        display: flex;
-        align-items: center;
-        gap: 10px;
+        margin-left: 10px;
     }
-    
-    .section-title i {
-        color: var(--secondary-color);
-        font-size: 1.3rem;
-    }
-    
-    /* Form Groups */
-    .form-group {
-        margin-bottom: 20px;
-    }
-    
-    .form-group label {
-        font-weight: 600;
-        color: var(--primary-color);
-        margin-bottom: 8px;
-        display: block;
-        font-size: 0.9rem;
-    }
-    
-    .form-group input,
-    .form-group textarea {
-        width: 100%;
-        padding: 12px 15px;
-        border: 1px solid var(--light-color);
-        border-radius: 10px;
-        font-size: 0.95rem;
-        transition: all 0.3s ease;
-        background: #f8f9fa;
-    }
-    
-    .form-group input:focus,
-    .form-group textarea:focus {
-        outline: none;
-        border-color: var(--secondary-color);
-        background: white;
-        box-shadow: 0 0 0 3px rgba(231, 76, 60, 0.1);
-    }
-    
-    .form-group input:disabled,
-    .form-group textarea:disabled {
-        background: #e9ecef;
-        cursor: not-allowed;
-    }
-    
-    /* Info Display */
+    .verified { background: #10b981; color: white; }
+    .unverified { background: #f59e0b; color: white; }
     .info-row {
         display: flex;
         padding: 12px 0;
-        border-bottom: 1px solid var(--light-color);
+        border-bottom: 1px solid #eee;
     }
-    
     .info-label {
         font-weight: 600;
-        color: var(--primary-color);
         width: 120px;
-        font-size: 0.9rem;
+        color: #555;
     }
-    
     .info-value {
         flex: 1;
-        color: var(--dark-color);
-        word-break: break-word;
+        color: #333;
     }
-    
-    /* Buttons */
-    .btn {
-        padding: 12px 20px;
+    .btn-save {
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: white;
+        padding: 12px 30px;
         border: none;
-        border-radius: 10px;
+        border-radius: 40px;
         font-weight: 600;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        font-size: 0.95rem;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        gap: 8px;
-    }
-    
-    .btn-primary {
-        background: var(--primary-color);
-        color: white;
-    }
-    
-    .btn-primary:hover {
-        background: var(--secondary-color);
-        transform: translateY(-2px);
-    }
-    
-    .btn-secondary {
-        background: var(--gray);
-        color: white;
-    }
-    
-    .btn-secondary:hover {
-        background: var(--dark-gray);
-        transform: translateY(-2px);
-    }
-    
-    .btn-danger {
-        background: var(--secondary-color);
-        color: white;
-    }
-    
-    .btn-danger:hover {
-        background: #c0392b;
-        transform: translateY(-2px);
-    }
-    
-    .btn-outline {
-        background: transparent;
-        border: 2px solid var(--primary-color);
-        color: var(--primary-color);
-    }
-    
-    .btn-outline:hover {
-        background: var(--primary-color);
-        color: white;
-    }
-    
-    /* Action Buttons Container - Mobile Bottom Bar */
-    .action-buttons {
-        display: flex;
-        gap: 12px;
         margin-top: 20px;
     }
-    
-    .action-buttons .btn {
-        flex: 1;
-    }
-    
-    /* Mobile Bottom Bar - Fixed at bottom on mobile */
-    .mobile-bottom-bar {
-        display: none;
-        position: fixed;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        background: white;
-        padding: 12px 20px;
-        box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
-        z-index: 1000;
-        gap: 12px;
-        border-top: 1px solid var(--light-color);
-    }
-    
-    .mobile-bottom-bar .btn {
-        flex: 1;
-        padding: 12px;
-        font-size: 0.9rem;
-    }
-    
-    /* Edit Mode Styles */
-    .edit-mode .info-display {
-        display: none;
-    }
-    
-    .edit-mode .info-edit {
-        display: block;
-    }
-    
-    .info-edit {
-        display: none;
-    }
-    
-    /* Alert Messages */
-    .alert {
-        padding: 12px 15px;
-        border-radius: 10px;
-        margin-bottom: 20px;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        animation: slideDown 0.3s ease;
-    }
-    
-    @keyframes slideDown {
-        from {
-            opacity: 0;
-            transform: translateY(-20px);
-        }
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    }
-    
-    .alert-success {
-        background: #d4edda;
-        color: #155724;
-        border: 1px solid #c3e6cb;
-    }
-    
-    .alert-error {
-        background: #f8d7da;
-        color: #721c24;
-        border: 1px solid #f5c6cb;
-    }
-    
-    .close-alert {
-        cursor: pointer;
-        font-size: 1.2rem;
-        font-weight: bold;
-    }
-    
-    .close-alert:hover {
-        opacity: 0.7;
-    }
-    
-    /* Loading Spinner */
-    .loading {
-        display: inline-block;
-        width: 16px;
-        height: 16px;
-        border: 2px solid rgba(255,255,255,0.3);
-        border-radius: 50%;
-        border-top-color: white;
-        animation: spin 0.6s linear infinite;
-    }
-    
-    @keyframes spin {
-        to { transform: rotate(360deg); }
-    }
-    
-    /* Stats Cards */
-    .stats-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-        gap: 15px;
-        margin-bottom: 20px;
-    }
-    
-    .stat-card {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        padding: 20px;
-        border-radius: 15px;
-        text-align: center;
-        color: white;
-    }
-    
-    .stat-card i {
-        font-size: 2rem;
-        margin-bottom: 10px;
-    }
-    
-    .stat-card .number {
-        font-size: 1.8rem;
-        font-weight: 700;
-    }
-    
-    .stat-card .label {
-        font-size: 0.85rem;
-        opacity: 0.9;
-    }
-    
-    /* Responsive Design */
-    @media (max-width: 768px) {
-        .profile-container {
-            margin: 15px auto;
-            padding-bottom: 80px; /* Space for bottom bar */
-        }
-        
-        .profile-header {
-            padding: 20px;
-        }
-        
-        .profile-avatar {
-            width: 80px;
-            height: 80px;
-            font-size: 2.5rem;
-        }
-        
-        .profile-header h2 {
-            font-size: 1.3rem;
-        }
-        
-        .profile-section {
-            padding: 15px;
-            margin-bottom: 15px;
-        }
-        
-        .section-title {
-            font-size: 1.1rem;
-            margin-bottom: 15px;
-        }
-        
-        .info-row {
-            flex-direction: column;
-            padding: 10px 0;
-        }
-        
-        .info-label {
-            width: 100%;
-            margin-bottom: 5px;
-            font-size: 0.85rem;
-        }
-        
-        .info-value {
-            font-size: 0.9rem;
-        }
-        
-        /* Hide desktop buttons on mobile */
-        .desktop-buttons {
-            display: none;
-        }
-        
-        /* Show mobile bottom bar */
-        .mobile-bottom-bar {
-            display: flex;
-        }
-        
-        .form-group input,
-        .form-group textarea {
-            padding: 10px 12px;
-            font-size: 0.9rem;
-        }
-        
-        .stats-grid {
-            grid-template-columns: repeat(2, 1fr);
-            gap: 10px;
-        }
-        
-        .stat-card {
-            padding: 15px;
-        }
-        
-        .stat-card .number {
-            font-size: 1.5rem;
-        }
-        
-        .stat-card i {
-            font-size: 1.5rem;
-        }
-    }
-    
-    @media (max-width: 480px) {
-        .profile-container {
-            margin: 10px auto;
-            padding: 0 10px;
-            padding-bottom: 80px;
-        }
-        
-        .stats-grid {
-            grid-template-columns: 1fr;
-        }
-        
-        .action-buttons {
-            flex-direction: column;
-        }
-        
-        .btn {
-            padding: 10px 15px;
-        }
-    }
-    
-    /* Desktop Styles */
-    @media (min-width: 769px) {
-        .mobile-bottom-bar {
-            display: none;
-        }
-        
-        .desktop-buttons {
-            display: flex;
-            gap: 12px;
-            margin-top: 20px;
-        }
-    }
-    
-    /* Password Modal */
-    .modal {
-        display: none;
-        position: fixed;
-        top: 0;
-        left: 0;
+    .edit-field {
         width: 100%;
-        height: 100%;
-        background: rgba(0,0,0,0.5);
-        z-index: 2000;
-        align-items: center;
-        justify-content: center;
-    }
-    
-    .modal-content {
-        background: white;
-        border-radius: 20px;
-        max-width: 400px;
-        width: 90%;
-        margin: 20px;
-        animation: slideUp 0.3s ease;
-    }
-    
-    @keyframes slideUp {
-        from {
-            transform: translateY(50px);
-            opacity: 0;
-        }
-        to {
-            transform: translateY(0);
-            opacity: 1;
-        }
-    }
-    
-    .modal-header {
-        padding: 20px;
-        border-bottom: 1px solid var(--light-color);
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-    }
-    
-    .modal-header h3 {
-        margin: 0;
-        color: var(--primary-color);
-    }
-    
-    .modal-body {
-        padding: 20px;
-    }
-    
-    .modal-footer {
-        padding: 20px;
-        border-top: 1px solid var(--light-color);
-        display: flex;
-        gap: 10px;
-        justify-content: flex-end;
-    }
-    
-    .close-modal {
-        cursor: pointer;
-        font-size: 1.5rem;
+        padding: 8px 12px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
     }
 </style>
-<body>
-<div class="profile-container">
-    <!-- Profile Header -->
-    <div class="profile-header">
-        <div class="profile-avatar">
-            <i class="fas fa-user-circle"></i>
-        </div>
-        <h2>{{ user.name }}</h2>
-        <p><i class="fas fa-envelope me-1"></i>{{ user.email }}</p>
-        <p><i class="fas fa-calendar-alt me-1"></i>Member since {{ user.created_at.strftime('%B %Y') if user.created_at else '2024' }}</p>
-    </div>
-    
-    <!-- Alert Messages -->
-    <div id="alertContainer"></div>
-    
-    <!-- Stats Section -->
-    <div class="stats-grid">
-        <div class="stat-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
-            <i class="fas fa-shopping-bag"></i>
-            <div class="number">0</div>
-            <div class="label">Total Orders</div>
-        </div>
-        <div class="stat-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
-            <i class="fas fa-heart"></i>
-            <div class="number">0</div>
-            <div class="label">Wishlist</div>
-        </div>
-        <div class="stat-card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
-            <i class="fas fa-star"></i>
-            <div class="number">0</div>
-            <div class="label">Reviews</div>
-        </div>
-    </div>
-    
-    <!-- Personal Information Section -->
-    <div class="profile-section" id="infoSection">
-        <div class="section-title">
-            <i class="fas fa-user"></i>
-            <span>Personal Information</span>
-        </div>
-        
-        <!-- Display Mode -->
-        <div id="infoDisplay">
-            <div class="info-row">
-                <div class="info-label">Full Name:</div>
-                <div class="info-value">{{ user.name }}</div>
-            </div>
-            <div class="info-row">
-                <div class="info-label">Email:</div>
-                <div class="info-value">{{ user.email }}</div>
-            </div>
-            <div class="info-row">
-                <div class="info-label">Phone:</div>
-                <div class="info-value">{{ user.phone or 'Not provided' }}</div>
-            </div>
-            <div class="info-row">
-                <div class="info-label">Address:</div>
-                <div class="info-value">{{ user.address or 'Not provided' }}</div>
-            </div>
-        </div>
-        
-        <!-- Edit Mode -->
-        <div id="infoEdit" style="display: none;">
-            <form id="profileForm">
-                <div class="form-group">
-                    <label>Full Name</label>
-                    <input type="text" name="name" value="{{ user.name }}" required>
-                </div>
-                <div class="form-group">
-                    <label>Phone Number</label>
-                    <input type="tel" name="phone" value="{{ user.phone or '' }}" placeholder="Enter your phone number">
-                </div>
-                <div class="form-group">
-                    <label>Address</label>
-                    <textarea name="address" rows="3" placeholder="Enter your address">{{ user.address or '' }}</textarea>
-                </div>
-            </form>
-        </div>
-        
-        <!-- Desktop Buttons -->
-        <div class="desktop-buttons">
-            <button class="btn btn-primary" id="editInfoBtn" onclick="toggleEdit()">
-                <i class="fas fa-edit"></i> Edit Profile
-            </button>
-            <button class="btn btn-outline" onclick="showPasswordModal()">
-                <i class="fas fa-key"></i> Change Password
-            </button>
-        </div>
-    </div>
-    
-    <!-- Mobile Bottom Bar (Fixed on mobile) -->
-    <div class="mobile-bottom-bar">
-        <button class="btn btn-primary" id="mobileEditInfoBtn" onclick="toggleEdit()">
-            <i class="fas fa-edit"></i> Edit
-        </button>
-        <button class="btn btn-outline" onclick="showPasswordModal()">
-            <i class="fas fa-key"></i> Password
-        </button>
-        <button class="btn btn-danger" onclick="logout()">
-            <i class="fas fa-sign-out-alt"></i> Logout
-        </button>
-    </div>
-</div>
 
-<!-- Change Password Modal -->
-<div id="passwordModal" class="modal">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h3><i class="fas fa-key me-2"></i>Change Password</h3>
-            <span class="close-modal" onclick="closePasswordModal()">&times;</span>
+<div class="profile-container">
+    <div class="profile-card">
+        <div class="avatar">
+            <i class="fas fa-user"></i>
         </div>
-        <div class="modal-body">
-            <form id="passwordForm">
-                <div class="form-group">
-                    <label>Current Password</label>
-                    <input type="password" id="oldPassword" required placeholder="Enter current password">
-                </div>
-                <div class="form-group">
-                    <label>New Password</label>
-                    <input type="password" id="newPassword" required placeholder="Minimum 6 characters">
-                </div>
-                <div class="form-group">
-                    <label>Confirm New Password</label>
-                    <input type="password" id="confirmPassword" required placeholder="Confirm new password">
-                </div>
-            </form>
+        
+        <h2 class="text-center mb-4">{{ user.name }}</h2>
+        
+        <div id="alertMsg"></div>
+        
+        <div class="info-row">
+            <div class="info-label">Email:</div>
+            <div class="info-value">{{ user.email }}</div>
         </div>
-        <div class="modal-footer">
-            <button class="btn btn-secondary" onclick="closePasswordModal()">Cancel</button>
-            <button class="btn btn-primary" onclick="changePassword()">Update Password</button>
+        
+        <div class="info-row">
+            <div class="info-label">Email Status:</div>
+            <div class="info-value">
+                {% if user.email_verified %}
+                    <span class="verified-badge verified"><i class="fas fa-check-circle"></i> Verified</span>
+                {% else %}
+                    <span class="verified-badge unverified"><i class="fas fa-clock"></i> Not Verified</span>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="info-row">
+            <div class="info-label">Phone:</div>
+            <div class="info-value">
+                <span id="phoneDisplay">{{ user.phone or 'Not provided' }}</span>
+                <button class="btn btn-sm btn-outline-secondary ms-2" onclick="editPhone()">Edit</button>
+                <input type="tel" id="phoneInput" class="edit-field" style="display:none;" value="{{ user.phone or '' }}">
+            </div>
+        </div>
+        
+        <div class="info-row">
+            <div class="info-label">Address:</div>
+            <div class="info-value">
+                <span id="addressDisplay">{{ user.address or 'Not provided' }}</span>
+                <button class="btn btn-sm btn-outline-secondary ms-2" onclick="editAddress()">Edit</button>
+                <textarea id="addressInput" class="edit-field" rows="2" style="display:none;">{{ user.address or '' }}</textarea>
+            </div>
+        </div>
+        
+        <div class="text-center">
+            <button class="btn-save" id="saveBtn" style="display:none;" onclick="saveProfile()">
+                <i class="fas fa-save"></i> Save Changes
+            </button>
         </div>
     </div>
 </div>
 
 <script>
-    let isEditMode = false;
+    let editingPhone = false;
+    let editingAddress = false;
     
-    function toggleEdit() {
-        isEditMode = !isEditMode;
-        
-        const infoDisplay = document.getElementById('infoDisplay');
-        const infoEdit = document.getElementById('infoEdit');
-        const editBtn = document.getElementById('editInfoBtn');
-        const mobileEditBtn = document.getElementById('mobileEditInfoBtn');
-        
-        if (isEditMode) {
-            infoDisplay.style.display = 'none';
-            infoEdit.style.display = 'block';
-            if (editBtn) editBtn.innerHTML = '<i class="fas fa-save"></i> Save Changes';
-            if (mobileEditBtn) mobileEditBtn.innerHTML = '<i class="fas fa-save"></i> Save';
-        } else {
-            saveProfile();
-            infoDisplay.style.display = 'block';
-            infoEdit.style.display = 'none';
-            if (editBtn) editBtn.innerHTML = '<i class="fas fa-edit"></i> Edit Profile';
-            if (mobileEditBtn) mobileEditBtn.innerHTML = '<i class="fas fa-edit"></i> Edit';
-        }
+    function editPhone() {
+        editingPhone = true;
+        document.getElementById('phoneDisplay').style.display = 'none';
+        document.getElementById('phoneInput').style.display = 'inline-block';
+        document.getElementById('saveBtn').style.display = 'inline-block';
+    }
+    
+    function editAddress() {
+        editingAddress = true;
+        document.getElementById('addressDisplay').style.display = 'none';
+        document.getElementById('addressInput').style.display = 'block';
+        document.getElementById('saveBtn').style.display = 'inline-block';
     }
     
     async function saveProfile() {
-        const formData = new FormData(document.getElementById('profileForm'));
-        const data = {
-            name: formData.get('name'),
-            phone: formData.get('phone'),
-            address: formData.get('address')
-        };
+        const phone = editingPhone ? document.getElementById('phoneInput').value : document.getElementById('phoneDisplay').innerText;
+        const address = editingAddress ? document.getElementById('addressInput').value : document.getElementById('addressDisplay').innerText;
         
         try {
-            const response = await fetch('/auth/update-profile', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(data)
-            });
-            
-            const result = await response.json();
-            
-            if (result.success) {
+            const res = await axios.post('/api/profile/update', { phone, address });
+            if (res.data.success) {
                 showAlert('Profile updated successfully!', 'success');
-                setTimeout(() => {
-                    location.reload();
-                }, 1500);
-            } else {
-                showAlert(result.message, 'error');
+                
+                if (editingPhone) {
+                    document.getElementById('phoneDisplay').innerText = phone || 'Not provided';
+                    document.getElementById('phoneDisplay').style.display = 'inline';
+                    document.getElementById('phoneInput').style.display = 'none';
+                }
+                if (editingAddress) {
+                    document.getElementById('addressDisplay').innerText = address || 'Not provided';
+                    document.getElementById('addressDisplay').style.display = 'inline';
+                    document.getElementById('addressInput').style.display = 'none';
+                }
+                
+                editingPhone = false;
+                editingAddress = false;
+                document.getElementById('saveBtn').style.display = 'none';
             }
         } catch (error) {
-            showAlert('Failed to update profile', 'error');
-        }
-    }
-    
-    function showPasswordModal() {
-        document.getElementById('passwordModal').style.display = 'flex';
-    }
-    
-    function closePasswordModal() {
-        document.getElementById('passwordModal').style.display = 'none';
-        document.getElementById('passwordForm').reset();
-    }
-    
-    async function changePassword() {
-        const oldPassword = document.getElementById('oldPassword').value;
-        const newPassword = document.getElementById('newPassword').value;
-        const confirmPassword = document.getElementById('confirmPassword').value;
-        
-        if (!oldPassword || !newPassword || !confirmPassword) {
-            showAlert('Please fill in all fields', 'error');
-            return;
-        }
-        
-        if (newPassword !== confirmPassword) {
-            showAlert('New passwords do not match', 'error');
-            return;
-        }
-        
-        if (newPassword.length < 6) {
-            showAlert('Password must be at least 6 characters', 'error');
-            return;
-        }
-        
-        try {
-            const response = await fetch('/auth/change-password', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    old_password: oldPassword,
-                    new_password: newPassword,
-                    confirm_password: confirmPassword
-                })
-            });
-            
-            const result = await response.json();
-            
-            if (result.success) {
-                showAlert('Password changed successfully!', 'success');
-                closePasswordModal();
-                setTimeout(() => {
-                    window.location.href = '/auth/login';
-                }, 2000);
-            } else {
-                showAlert(result.message, 'error');
-            }
-        } catch (error) {
-            showAlert('Failed to change password', 'error');
+            showAlert('Failed to update profile', 'danger');
         }
     }
     
     function showAlert(message, type) {
-        const alertContainer = document.getElementById('alertContainer');
-        const alertDiv = document.createElement('div');
-        alertDiv.className = `alert alert-${type}`;
-        alertDiv.innerHTML = `
-            <span>${message}</span>
-            <span class="close-alert" onclick="this.parentElement.remove()">&times;</span>
-        `;
-        alertContainer.appendChild(alertDiv);
-        
-        setTimeout(() => {
-            if (alertDiv) alertDiv.remove();
-        }, 3000);
+        const container = document.getElementById('alertMsg');
+        container.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
+        setTimeout(() => container.innerHTML = '', 3000);
     }
-    
-    function logout() {
-        if (confirm('Are you sure you want to logout?')) {
-            window.location.href = '/auth/logout';
-        }
-    }
-    
-    // Close modal when clicking outside
-    window.onclick = function(event) {
-        const modal = document.getElementById('passwordModal');
-        if (event.target === modal) {
-            closePasswordModal();
-        }
-    }
-    
-    // Handle Enter key in forms
-    document.addEventListener('keypress', function(e) {
-        if (e.key === 'Enter' && document.getElementById('passwordModal').style.display === 'flex') {
-            changePassword();
-        }
-    });
 </script>
 {% endblock %}
-</body>
-</html>

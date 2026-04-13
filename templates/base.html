@@ -3,145 +3,235 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Clothing Store{% endblock %}</title>
+    <title>FashionHub - Premium Clothing Store</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/responsive.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #e74c3c;
+        }
+        
+        body {
+            font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #f8f9fa;
+        }
+        
+        .navbar {
+            background: linear-gradient(135deg, var(--primary-color) 0%, #1a252f 100%);
+            padding: 15px 0;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .navbar-brand {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: white !important;
+        }
+        
+        .navbar-brand i {
+            color: var(--secondary-color);
+            margin-right: 8px;
+        }
+        
+        .nav-link {
+            color: white !important;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            margin: 0 10px;
+        }
+        
+        .nav-link:hover {
+            color: var(--secondary-color) !important;
+            transform: translateY(-2px);
+        }
+        
+        .badge-count {
+            position: absolute;
+            top: -8px;
+            right: -12px;
+            background: var(--secondary-color);
+            color: white;
+            font-size: 0.7rem;
+            font-weight: bold;
+            padding: 2px 6px;
+            border-radius: 30px;
+            min-width: 18px;
+        }
+        
+        .flash-messages {
+            position: fixed;
+            top: 80px;
+            right: 20px;
+            z-index: 9999;
+            max-width: 350px;
+        }
+        
+        .alert {
+            border-radius: 12px;
+            margin-bottom: 10px;
+            animation: slideIn 0.3s ease;
+        }
+        
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        
+        .footer {
+            background: var(--primary-color);
+            color: white;
+            padding: 40px 0 20px;
+            margin-top: 50px;
+        }
+        
+        .footer a {
+            color: white;
+            text-decoration: none;
+            transition: all 0.3s ease;
+        }
+        
+        .footer a:hover {
+            color: var(--secondary-color);
+        }
+        
+        .cart-badge, .wishlist-badge {
+            position: relative;
+        }
+    </style>
 </head>
 <body>
-
-<!-- Logout Confirmation Modal -->
-<div class="modal fade" id="logoutModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">
-                    <i class="fas fa-sign-out-alt text-danger me-2"></i>Confirm Logout
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <p>Are you sure you want to logout?</p>
-                <p class="text-muted small">You will need to login again to access your account.</p>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                    <i class="fas fa-times me-1"></i>Cancel
-                </button>
-                <a href="{{ url_for('auth.logout') }}" class="btn btn-danger">
-                    <i class="fas fa-sign-out-alt me-1"></i>Logout
-                </a>
-            </div>
-        </div>
-    </div>
-</div>
-
-<script>
-    // Show modal instead of confirm dialog
-    document.querySelectorAll('.logout-btn').forEach(btn => {
-        btn.addEventListener('click', function(e) {
-            e.preventDefault();
-            new bootstrap.Modal(document.getElementById('logoutModal')).show();
-        });
-    });
-</script>
-    <!-- In your navigation bar -->
-<ul class="navbar-nav ms-auto">
-    <li class="nav-item">
-        <a class="nav-link" href="{{ url_for('product.shop') }}">Shop</a>
-    </li>
-    
-    <!-- Show Add Product link only for admin users -->
-    {% if session.is_admin %}
-    <li class="nav-item">
-        <a class="nav-link" href="{{ url_for('product.add_product') }}">
-            <i class="fas fa-plus-circle"></i> Add Product
-        </a>
-    </li>
-    {% endif %}
-    
-    <!-- Rest of your navigation items -->
-</ul>
-    <!-- Navigation Bar -->
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg sticky-top">
         <div class="container">
-            <a class="navbar-brand" href="{{ url_for('product.index') }}">
-                <img src="{{ url_for('static', filename='images/logos/logo.png') }}" alt="Logo" height="40">
-                FashionHub
+            <a class="navbar-brand" href="/">
+                <i class="fas fa-tshirt"></i> FashionHub
             </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
+                <span class="navbar-toggler-icon bg-white rounded"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
+                <ul class="navbar-nav ms-auto align-items-center">
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('product.shop') }}">Shop</a>
+                        <a class="nav-link" href="/">Home</a>
                     </li>
-                    {% if session.user_id %}
-                        <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('cart.view_cart') }}">
-                                <i class="fas fa-shopping-cart"></i>
-                                Cart <span class="badge bg-danger" id="cart-count">{{ cart_count() }}</span>
-                            </a>
-                        </li>
-                        <li class="nav-item dropdown">
-                            <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown">
-                                {{ session.user_name }}
-                            </a>
-                            <ul class="dropdown-menu">
-                                <li><a class="dropdown-item" href="{{ url_for('auth.profile') }}">Profile</a></li>
-                                <li><hr class="dropdown-divider"></li>
-                                <li><a class="dropdown-item" href="{{ url_for('auth.logout') }}">Logout</a></li>
-                            </ul>
-                        </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/shop">Shop</a>
+                    </li>
+                    <li class="nav-item cart-badge">
+                        <a class="nav-link" href="#" id="cartBtn">
+                            <i class="fas fa-shopping-cart"></i>
+                            <span id="cartCount" class="badge-count">0</span>
+                        </a>
+                    </li>
+                    <li class="nav-item wishlist-badge">
+                        <a class="nav-link" href="#" id="wishlistBtn">
+                            <i class="far fa-heart"></i>
+                            <span id="wishlistCount" class="badge-count">0</span>
+                        </a>
+                    </li>
+                    
+                    {% if session.logged_in %}
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-user-circle"></i> {{ session.user_name }}
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="/profile"><i class="fas fa-user"></i> Profile</a></li>
+                            <li><a class="dropdown-item" href="/orders"><i class="fas fa-box"></i> Orders</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="#" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
+                        </ul>
+                    </li>
                     {% else %}
-                        <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('auth.login') }}">Login</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('auth.login') }}">Register</a>
-                        </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/login">Login</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/register">Sign Up</a>
+                    </li>
                     {% endif %}
                 </ul>
             </div>
         </div>
     </nav>
-
+    
+    <!-- Flash Messages -->
+    <div class="flash-messages">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            {% endfor %}
+        {% endwith %}
+    </div>
+    
     <!-- Main Content -->
-    <main>
-        {% block content %}{% endblock %}
-    </main>
-
+    {% block content %}{% endblock %}
+    
     <!-- Footer -->
-    <footer class="bg-dark text-light mt-5 py-4">
+    <footer class="footer">
         <div class="container">
             <div class="row">
                 <div class="col-md-4">
-                    <h5>About Us</h5>
-                    <p>Your one-stop shop for trendy fashion</p>
+                    <h5><i class="fas fa-tshirt"></i> FashionHub</h5>
+                    <p>Your premium destination for fashion and style.</p>
                 </div>
                 <div class="col-md-4">
                     <h5>Quick Links</h5>
                     <ul class="list-unstyled">
-                        <li><a href="#" class="text-light">Privacy Policy</a></li>
-                        <li><a href="#" class="text-light">Terms & Conditions</a></li>
-                        <li><a href="#" class="text-light">Shipping Info</a></li>
+                        <li><a href="/">Home</a></li>
+                        <li><a href="/shop">Shop</a></li>
+                        <li><a href="/profile">My Account</a></li>
+                        <li><a href="/orders">My Orders</a></li>
                     </ul>
                 </div>
                 <div class="col-md-4">
                     <h5>Follow Us</h5>
-                    <a href="#" class="text-light me-3"><i class="fab fa-facebook fa-2x"></i></a>
-                    <a href="#" class="text-light me-3"><i class="fab fa-instagram fa-2x"></i></a>
-                    <a href="#" class="text-light"><i class="fab fa-twitter fa-2x"></i></a>
+                    <a href="#" class="me-3"><i class="fab fa-facebook fa-lg"></i></a>
+                    <a href="#" class="me-3"><i class="fab fa-instagram fa-lg"></i></a>
+                    <a href="#" class="me-3"><i class="fab fa-twitter fa-lg"></i></a>
                 </div>
+            </div>
+            <hr class="mt-4">
+            <div class="text-center">
+                <p>&copy; 2024 FashionHub. All rights reserved.</p>
             </div>
         </div>
     </footer>
-
+    
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
-    {% block scripts %}{% endblock %}
+    <script>
+        async function logout() {
+            await axios.post('/api/logout');
+            window.location.href = '/';
+        }
+        
+        async function loadCounts() {
+            try {
+                const cartRes = await axios.get('/api/cart');
+                const cartCount = cartRes.data.items?.reduce((s,i) => s + i.quantity, 0) || 0;
+                document.getElementById('cartCount').innerText = cartCount;
+                
+                const wishRes = await axios.get('/api/wishlist');
+                document.getElementById('wishlistCount').innerText = wishRes.data.length || 0;
+            } catch(e) {}
+        }
+        
+        document.getElementById('cartBtn')?.addEventListener('click', (e) => {
+            e.preventDefault();
+            window.location.href = '/shop';
+        });
+        
+        document.getElementById('wishlistBtn')?.addEventListener('click', (e) => {
+            e.preventDefault();
+            window.location.href = '/shop';
+        });
+        
+        loadCounts();
+    </script>
 </body>
 </html>

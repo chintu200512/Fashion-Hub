@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+
+{% block title %}{{ product.name }} - ÉLAN{% endblock %}
+
+{% block content %}
+<style>
+    .product-detail { padding: 20px; }
+    .product-image img { width: 100%; border-radius: 24px; }
+    .product-price { font-size: 2rem; font-weight: 700; color: var(--accent); margin: 15px 0; }
+    .quantity-selector { display: flex; align-items: center; gap: 15px; margin: 20px 0; }
+    .quantity-btn { width: 40px; height: 40px; border-radius: 40px; border: 1px solid var(--border-light); background: var(--bg-secondary); cursor: pointer; }
+    .quantity-input { width: 60px; text-align: center; font-size: 1.2rem; background: var(--bg-secondary); border: 1px solid var(--border-light); border-radius: 12px; padding: 8px; }
+    .btn-large { padding: 15px; font-size: 1.1rem; border-radius: 40px; margin: 10px 0; }
+    .related-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-top: 20px; }
+    .stock-status { color: #10b981; font-weight: 600; margin: 10px 0; }
+</style>
+
+<div class="product-detail">
+    <div class="product-image">
+        <img src="{{ product.image }}" onerror="this.src='https://picsum.photos/400/500'" alt="{{ product.name }}">
+    </div>
+    
+    <h1>{{ product.name }}</h1>
+    <div class="product-price">₹{{ "{:,.0f}".format(product.price) }}</div>
+    
+    <div class="stock-status">
+        <i class="fas fa-check-circle"></i> {{ product.stock }} items in stock
+    </div>
+    
+    <div class="quantity-selector">
+        <button class="quantity-btn" id="decrQty">-</button>
+        <input type="number" id="quantity" class="quantity-input" value="1" min="1" max="{{ product.stock }}">
+        <button class="quantity-btn" id="incrQty">+</button>
+    </div>
+    
+    <button class="btn-fetch" id="detailAddToCart" style="width:100%; background:var(--accent); color:white; padding:15px; border-radius:40px; border:none; font-weight:600;">
+        <i class="fas fa-shopping-cart"></i> Add to Cart
+    </button>
+    
+    <button class="btn-outline" id="detailWishlistBtn" style="width:100%; margin-top:10px; padding:15px; border-radius:40px; background:transparent; border:1px solid var(--accent); color:var(--accent); cursor:pointer;">
+        <i class="far fa-heart"></i> Add to Wishlist
+    </button>
+    
+    <div style="margin-top: 30px;">
+        <h3>Product Details</h3>
+        <p style="color: var(--text-secondary); line-height: 1.6;">{{ product.description }}</p>
+    </div>
+    
+    {% if related_products %}
+    <div style="margin-top: 40px;">
+        <h3>You May Also Like</h3>
+        <div class="related-grid">
+            {% for p in related_products %}
+            <div class="product-card" style="cursor:pointer;" onclick="location.href='/product/{{ p._id }}'">
+                <div class="card-img"><img src="{{ p.image }}" style="width:100%; height:150px; object-fit:cover;"></div>
+                <div class="card-info"><div class="product-title">{{ p.name[:30] }}</div><div class="price">₹{{ p.price }}</div></div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+let quantity = 1;
+const maxStock = {{ product.stock }};
+
+document.getElementById('incrQty').onclick = () => {
+    if (quantity < maxStock) { quantity++; document.getElementById('quantity').value = quantity; }
+};
+document.getElementById('decrQty').onclick = () => {
+    if (quantity > 1) { quantity--; document.getElementById('quantity').value = quantity; }
+};
+document.getElementById('quantity').onchange = (e) => {
+    let val = parseInt(e.target.value);
+    if (isNaN(val)) val = 1;
+    quantity = Math.min(maxStock, Math.max(1, val));
+    document.getElementById('quantity').value = quantity;
+};
+
+document.getElementById('detailAddToCart').onclick = async () => {
+    await addToCart('{{ product._id }}', quantity);
+    showCartPopup();
+};
+
+document.getElementById('detailWishlistBtn').onclick = async () => {
+    await toggleWishlist('{{ product._id }}');
+    alert('Added to wishlist!');
+};
+
+async function addToCart(productId, qty) {
+    const res = await axios.post('/api/cart/add', { product_id: productId, quantity: qty });
+    if(res.data.success) {
+        const badge = document.getElementById('cartCountBadge');
+        if(badge) {
+            let count = parseInt(badge.innerText) || 0;
+            badge.innerText = count + qty;
+        }
+    }
+}
+
+async function toggleWishlist(productId) {
+    await axios.post('/api/wishlist/toggle', { product_id: productId });
+}
+
+function showCartPopup() {
+    const pop = document.getElementById('cartPopup');
+    if(pop) { pop.classList.add('open'); setTimeout(() => pop.classList.remove('open'), 2000); }
+}
+</script>
+{% endblock %}

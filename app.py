@@ -1,336 +1,686 @@
-from flask import Flask, session, redirect, url_for, jsonify, request
-from config import Config
-from database.mongodb_connection import MongoDB, init_db
-from routes.auth_routes import auth_bp
-from routes.product_routes import product_bp
-from routes.cart_routes import cart_bp
-from routes.admin_routes import admin_bp
-from models.user import User
-from models.product import Product
-from bson import ObjectId
-import json
+from flask import Flask, render_template, request, jsonify, session, redirect, url_for, flash
+from pymongo import MongoClient
+from bson.objectid import ObjectId
 from datetime import datetime
+import bcrypt
+import os
+import requests
+from dotenv import load_dotenv
+from authlib.integrations.flask_client import OAuth
+from functools import wraps
 
-# Custom JSON encoder for MongoDB ObjectId
-class JSONEncoder(json.JSONEncoder):
-    def default(self, obj):
-        if isinstance(obj, ObjectId):
-            return str(obj)
-        if isinstance(obj, datetime):
-            return obj.isoformat()
-        return super().default(obj)
+load_dotenv()
 
-def create_app():
-    """Application factory pattern"""
-    app = Flask(__name__)
-    app.config.from_object(Config)
-    app.secret_key = Config.SECRET_KEY
-    app.json_encoder = JSONEncoder
-    
-    # Initialize database
-    MongoDB.connect()
-    init_db()
-    
-    # Register blueprints
-    app.register_blueprint(auth_bp, url_prefix='/auth')
-    app.register_blueprint(product_bp)
-    app.register_blueprint(cart_bp)
-    app.register_blueprint(admin_bp)  # Register admin blueprint
-    
-    # Register context processors
-    register_context_processors(app)
-    
-    # Register error handlers
-    register_error_handlers(app)
-    
-    # Register before/after request handlers
-    register_request_handlers(app)
-    
-    # Register CLI commands
-    register_cli_commands(app)
-    
-    return app
+app = Flask(__name__)
+app.secret_key = os.getenv('SECRET_KEY', 'your-secret-key-here')
 
-def register_context_processors(app):
-    from models.user import User
-    from flask import session
-    
-    @app.context_processor
-    def utility_processor():
-        def cart_count():
-            if 'user_id' in session:
-                return len(User.get_cart(session['user_id']))
-            return 0
-        
-        def is_authenticated():
-            return 'user_id' in session
-        
-        def get_user():
-            if 'user_id' in session:
-                return User.get_user_by_id(session['user_id'])
-            return None
-        
-        def is_admin():
-            return session.get('is_admin', False)
-        
-        return dict(
-            cart_count=cart_count,
-            is_authenticated=is_authenticated,
-            get_user=get_user,
-            is_admin=is_admin
-        )
+# MongoDB Connection
+MONGO_URI = os.getenv('MONGO_URI', 'mongodb://localhost:27017/')
+client = MongoClient(MONGO_URI)
+db = client[os.getenv('DB_NAME', 'fashionhub')]
 
-def register_error_handlers(app):
-    from flask import render_template
-    
-    @app.errorhandler(404)
-    def not_found(error):
-        return render_template('404.html'), 404
-    
-    @app.errorhandler(500)
-    def internal_error(error):
-        return render_template('500.html'), 500
-    
-    @app.errorhandler(403)
-    def forbidden(error):
-        return render_template('403.html'), 403
+# Collections
+users_collection = db['users']
+products_collection = db['products']
+cart_collection = db['cart']
+wishlist_collection = db['wishlist']
+orders_collection = db['orders']
 
-def register_request_handlers(app):
-    from flask import session, request, redirect, url_for
-    
-    @app.before_request
-    def before_request():
-        session.permanent = True
-        protected_routes = ['/cart', '/profile', '/order-confirmation']
-        if any(request.path.startswith(route) for route in protected_routes):
-            if 'user_id' not in session:
-                return redirect(url_for('auth.login'))
-    
-    @app.after_request
-    def after_request(response):
-        response.headers['X-Content-Type-Options'] = 'nosniff'
-        response.headers['X-Frame-Options'] = 'DENY'
-        response.headers['X-XSS-Protection'] = '1; mode=block'
-        return response
+# Create unique index on product name to prevent duplicates
+try:
+    products_collection.create_index('name', unique=True)
+except:
+    pass  # Index already exists
 
-def register_cli_commands(app):
-    from database.mongodb_connection import init_db
-    from models.user import User
-    from werkzeug.security import generate_password_hash
-    import uuid
-    from datetime import datetime
-    
-    @app.cli.command('init-db')
-    def init_db_command():
-        """Initialize the database with sample data."""
-        init_db()
-        print('✅ Database initialized with sample data!')
-    
-    @app.cli.command('create-admin')
-    def create_admin():
-        """Create an admin user."""
-        email = input('Enter admin email: ')
-        password = input('Enter admin password: ')
-        name = input('Enter admin name: ')
-        
-        admin_user = {
-            "user_id": str(uuid.uuid4()),
-            "email": email,
-            "password_hash": generate_password_hash(password),
-            "name": name,
-            "address": None,
-            "phone": None,
-            "cart": [],
-            "wishlist": [],
-            "orders": [],
-            "created_at": datetime.utcnow(),
-            "is_admin": True
-        }
-        
-        users_collection = User.get_collection()
-        existing = users_collection.find_one({"email": email})
-        
-        if existing:
-            print('❌ User with this email already exists!')
-            return
-        
-        users_collection.insert_one(admin_user)
-        print('=' * 50)
-        print('✅ Admin user created successfully!')
-        print('=' * 50)
-        print(f'📧 Email: {email}')
-        print(f'🔑 Password: {password}')
-        print(f'👤 Name: {name}')
-        print('=' * 50)
+# Google OAuth Configuration
+oauth = OAuth(app)
+google = oauth.register(
+    name='google',
+    client_id=os.getenv('GOOGLE_CLIENT_ID'),
+    client_secret=os.getenv('GOOGLE_CLIENT_SECRET'),
+    server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
+    client_kwargs={
+        'scope': 'openid email profile',
+        'prompt': 'select_account'
+    }
+)
 
-# Create app instance
-app = create_app()
+# ============================================
+# DECORATORS
+# ============================================
 
-# Register additional routes after app creation
-@app.route('/')
-def home():
-    return redirect(url_for('product.index'))
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not session.get('logged_in'):
+            flash('Please login to access this page', 'warning')
+            return redirect(url_for('login_page'))
+        return f(*args, **kwargs)
+    return decorated_function
 
-@app.route('/health')
-def health_check():
+# ============================================
+# GOOGLE OAUTH ROUTES
+# ============================================
+
+@app.route('/login/google')
+def google_login():
+    """Initiate Google OAuth login"""
+    session['next'] = request.args.get('next') or url_for('shop_page')
+    redirect_uri = url_for('google_callback', _external=True)
+    return google.authorize_redirect(redirect_uri)
+
+@app.route('/auth/google/callback')
+def google_callback():
+    """Handle Google OAuth callback"""
     try:
-        # Check database connection
-        MongoDB.db.command('ping')
-        return jsonify({
-            'status': 'healthy',
-            'database': 'connected',
-            'timestamp': datetime.utcnow().isoformat()
-        }), 200
+        # Get access token
+        token = google.authorize_access_token()
+        
+        # Get user info from Google
+        resp = google.get('https://www.googleapis.com/oauth2/v2/userinfo')
+        user_info = resp.json()
+        
+        email = user_info.get('email')
+        name = user_info.get('name', email.split('@')[0] if email else 'User')
+        google_id = user_info.get('id')
+        picture = user_info.get('picture', '')
+        
+        if not email:
+            flash('Could not retrieve email from Google', 'danger')
+            return redirect(url_for('login_page'))
+        
+        # Check if user exists
+        existing_user = users_collection.find_one({'email': email})
+        
+        if existing_user:
+            # Update user with Google info
+            users_collection.update_one(
+                {'_id': existing_user['_id']},
+                {'$set': {
+                    'google_id': google_id,
+                    'picture': picture,
+                    'auth_provider': 'google',
+                    'last_login': datetime.now()
+                }}
+            )
+            session['user_id'] = str(existing_user['_id'])
+            session['user_name'] = existing_user['name']
+            session['user_email'] = existing_user['email']
+        else:
+            # Create new user
+            new_user = {
+                'name': name,
+                'email': email,
+                'password': None,
+                'google_id': google_id,
+                'picture': picture,
+                'phone': '',
+                'address': '',
+                'email_verified': True,
+                'auth_provider': 'google',
+                'created_at': datetime.now(),
+                'last_login': datetime.now(),
+                'is_admin': False,
+                'total_orders': 0,
+                'total_spent': 0
+            }
+            result = users_collection.insert_one(new_user)
+            session['user_id'] = str(result.inserted_id)
+            session['user_name'] = name
+            session['user_email'] = email
+        
+        session['logged_in'] = True
+        session['auth_provider'] = 'google'
+        
+        # Merge guest cart
+        merge_guest_cart(session['user_id'])
+        
+        flash(f'Welcome back, {session["user_name"]}!', 'success')
+        
+        # Redirect to page user wanted or home
+        next_page = session.pop('next', url_for('shop_page'))
+        return redirect(next_page)
+        
     except Exception as e:
-        return jsonify({
-            'status': 'unhealthy',
-            'error': str(e),
-            'timestamp': datetime.utcnow().isoformat()
-        }), 500
+        print(f"Google OAuth error: {e}")
+        import traceback
+        traceback.print_exc()
+        flash('Google login failed. Please try again.', 'danger')
+        return redirect(url_for('login_page'))
 
-# API endpoint to get cart count
-@app.route('/api/cart/count')
-def api_cart_count():
-    if 'user_id' in session:
-        return jsonify({'count': len(User.get_cart(session['user_id']))})
-    return jsonify({'count': 0})
+# ============================================
+# AUTHENTICATION ROUTES
+# ============================================
 
-# API endpoint to update cart item quantity
-@app.route('/api/cart/update/<product_id>', methods=['PUT'])
-def update_cart_item(product_id):
-    if 'user_id' not in session:
-        return jsonify({'success': False, 'message': 'Please login first'}), 401
-    
+@app.route('/api/register', methods=['POST'])
+def api_register():
     data = request.json
-    quantity = data.get('quantity', 1)
+    name = data.get('name')
+    email = data.get('email')
+    password = data.get('password')
     
-    user = User.get_user_by_id(session['user_id'])
-    cart = user.get('cart', [])
+    # Check if user already exists
+    existing_user = users_collection.find_one({'email': email})
+    if existing_user:
+        return jsonify({'success': False, 'message': 'Email already registered'}), 400
     
-    for item in cart:
-        if item['product_id'] == product_id:
-            item['quantity'] = quantity
-            break
+    if len(password) < 6:
+        return jsonify({'success': False, 'message': 'Password must be at least 6 characters'}), 400
     
-    result = User.get_collection().update_one(
-        {"user_id": session['user_id']},
-        {"$set": {"cart": cart}}
-    )
+    # Hash password
+    hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
     
-    if result.modified_count > 0:
-        return jsonify({'success': True, 'message': 'Cart updated'})
-    return jsonify({'success': False, 'message': 'Failed to update cart'}), 400
-
-# API endpoint to remove item from cart
-@app.route('/api/cart/remove', methods=['DELETE'])
-def remove_cart_item():
-    if 'user_id' not in session:
-        return jsonify({'success': False, 'message': 'Please login first'}), 401
-    
-    data = request.json
-    product_id = data.get('product_id')
-    size = data.get('size')
-    color = data.get('color')
-    
-    user = User.get_user_by_id(session['user_id'])
-    cart = user.get('cart', [])
-    
-    # Remove the specific item
-    cart = [item for item in cart if not (
-        item['product_id'] == product_id and 
-        item.get('size') == size and 
-        item.get('color') == color
-    )]
-    
-    result = User.get_collection().update_one(
-        {"user_id": session['user_id']},
-        {"$set": {"cart": cart}}
-    )
-    
-    if result.modified_count > 0:
-        return jsonify({'success': True, 'message': 'Item removed from cart'})
-    return jsonify({'success': False, 'message': 'Failed to remove item'}), 400
-
-# API endpoint to apply coupon
-@app.route('/api/cart/apply-coupon', methods=['POST'])
-def apply_coupon():
-    if 'user_id' not in session:
-        return jsonify({'success': False, 'message': 'Please login first'}), 401
-    
-    data = request.json
-    coupon_code = data.get('coupon', '').upper()
-    
-    # Define valid coupons
-    coupons = {
-        'SAVE10': {'discount': 0.10, 'min_amount': 1000},
-        'SAVE20': {'discount': 0.20, 'min_amount': 2000},
-        'FREESHIP': {'discount': 0, 'free_shipping': True}
+    # Create user
+    user = {
+        'name': name,
+        'email': email,
+        'password': hashed,
+        'phone': '',
+        'address': '',
+        'email_verified': True,
+        'auth_provider': 'email',
+        'created_at': datetime.now(),
+        'last_login': None,
+        'is_admin': False,
+        'total_orders': 0,
+        'total_spent': 0
     }
     
-    if coupon_code in coupons:
-        # Get cart total
-        cart_items = User.get_cart(session['user_id'])
-        total = 0
-        for item in cart_items:
-            product = Product.get_product_by_id(item['product_id'])
-            if product:
-                total += product['price'] * item['quantity']
+    result = users_collection.insert_one(user)
+    
+    return jsonify({
+        'success': True,
+        'message': 'Registration successful! Please login.'
+    })
+
+@app.route('/api/login', methods=['POST'])
+def api_login():
+    data = request.json
+    email = data.get('email')
+    password = data.get('password')
+    
+    user = users_collection.find_one({'email': email})
+    
+    if user and user.get('password') and bcrypt.checkpw(password.encode('utf-8'), user['password']):
+        users_collection.update_one(
+            {'_id': user['_id']},
+            {'$set': {'last_login': datetime.now()}}
+        )
         
-        coupon_info = coupons[coupon_code]
+        session['user_id'] = str(user['_id'])
+        session['user_name'] = user['name']
+        session['user_email'] = user['email']
+        session['logged_in'] = True
+        session['auth_provider'] = 'email'
         
-        if 'min_amount' in coupon_info and total < coupon_info['min_amount']:
-            return jsonify({
-                'success': False, 
-                'message': f'Minimum order amount of ₹{coupon_info["min_amount"]} required'
-            }), 400
-        
-        # Store coupon in session
-        session['applied_coupon'] = coupon_code
+        merge_guest_cart(str(user['_id']))
         
         return jsonify({
             'success': True,
-            'message': 'Coupon applied successfully!',
-            'coupon': coupon_info
+            'message': 'Login successful',
+            'user': {'name': user['name'], 'email': user['email']}
         })
+    
+    return jsonify({'success': False, 'message': 'Invalid credentials'}), 401
+
+@app.route('/api/logout', methods=['POST'])
+def api_logout():
+    session.clear()
+    return jsonify({'success': True})
+
+@app.route('/api/session', methods=['GET'])
+def api_get_session():
+    if session.get('logged_in'):
+        return jsonify({
+            'logged_in': True,
+            'user': {
+                'id': session.get('user_id'),
+                'name': session.get('user_name'),
+                'email': session.get('user_email'),
+                'auth_provider': session.get('auth_provider', 'email')
+            }
+        })
+    return jsonify({'logged_in': False})
+
+# ============================================
+# PROFILE ROUTES
+# ============================================
+
+@app.route('/profile')
+@login_required
+def profile_page():
+    user = users_collection.find_one({'_id': ObjectId(session['user_id'])})
+    return render_template('profile.html', user=user)
+
+@app.route('/api/profile/update', methods=['POST'])
+@login_required
+def api_update_profile():
+    data = request.json
+    users_collection.update_one(
+        {'_id': ObjectId(session['user_id'])},
+        {'$set': {
+            'phone': data.get('phone', ''),
+            'address': data.get('address', '')
+        }}
+    )
+    return jsonify({'success': True, 'message': 'Profile updated'})
+
+# ============================================
+# PRODUCT ROUTES
+# ============================================
+
+@app.route('/api/products', methods=['GET'])
+def api_get_products():
+    query = {}
+    category = request.args.get('category')
+    if category and category != 'all':
+        query['category'] = category
+    
+    search = request.args.get('search')
+    if search:
+        query['$or'] = [
+            {'name': {'$regex': search, '$options': 'i'}},
+            {'description': {'$regex': search, '$options': 'i'}}
+        ]
+    
+    products = list(products_collection.find(query).limit(50))
+    for product in products:
+        product['_id'] = str(product['_id'])
+    
+    return jsonify(products)
+
+@app.route('/product/<product_id>')
+def product_detail(product_id):
+    try:
+        product = products_collection.find_one({'_id': ObjectId(product_id)})
+        if not product:
+            flash('Product not found', 'danger')
+            return redirect(url_for('shop_page'))
+        
+        product['_id'] = str(product['_id'])
+        
+        # Get related products
+        related = list(products_collection.find({
+            'category': product['category'],
+            '_id': {'$ne': ObjectId(product_id)}
+        }).limit(4))
+        
+        for p in related:
+            p['_id'] = str(p['_id'])
+        
+        return render_template('product_detail.html', product=product, related_products=related)
+    except:
+        flash('Product not found', 'danger')
+        return redirect(url_for('shop_page'))
+
+# ============================================
+# ADMIN PRODUCT CREATION
+# ============================================
+
+@app.route('/admin/add-product', methods=['GET', 'POST'])
+def admin_add_product():
+    if request.method == 'POST':
+        name = request.form.get('name')
+        price = float(request.form.get('price'))
+        category = request.form.get('category')
+        description = request.form.get('description')
+        image = request.form.get('image')
+        stock = int(request.form.get('stock'))
+        
+        # Check for duplicate product
+        existing = products_collection.find_one({'name': name})
+        if existing:
+            flash('Product with this name already exists!', 'danger')
+            return redirect(url_for('admin_add_product'))
+        
+        product = {
+            'name': name,
+            'price': price,
+            'category': category,
+            'description': description,
+            'image': image,
+            'rating': 4.5,
+            'stock': stock,
+            'created_at': datetime.now()
+        }
+        
+        products_collection.insert_one(product)
+        flash('Product added successfully!', 'success')
+        return redirect(url_for('admin_add_product'))
+    
+    return render_template('admin_add_product.html')
+
+# ============================================
+# CART ROUTES
+# ============================================
+
+def merge_guest_cart(user_id):
+    guest_id = f"guest_{request.remote_addr}"
+    guest_cart = list(cart_collection.find({'user_id': guest_id}))
+    
+    for guest_item in guest_cart:
+        existing = cart_collection.find_one({
+            'user_id': user_id,
+            'product_id': guest_item['product_id']
+        })
+        
+        if existing:
+            cart_collection.update_one(
+                {'_id': existing['_id']},
+                {'$inc': {'quantity': guest_item['quantity']}}
+            )
+        else:
+            guest_item['user_id'] = user_id
+            cart_collection.insert_one(guest_item)
+        
+        cart_collection.delete_one({'_id': guest_item['_id']})
+
+@app.route('/api/cart', methods=['GET'])
+def api_get_cart():
+    user_id = session.get('user_id', 'guest_' + request.remote_addr)
+    cart_items = list(cart_collection.find({'user_id': user_id}))
+    
+    items = []
+    total = 0
+    for item in cart_items:
+        product = products_collection.find_one({'_id': ObjectId(item['product_id'])})
+        if product:
+            items.append({
+                'id': str(item['_id']),
+                'product_id': str(product['_id']),
+                'name': product['name'],
+                'price': product['price'],
+                'image': product.get('image', 'placeholder.jpg'),
+                'quantity': item['quantity']
+            })
+            total += product['price'] * item['quantity']
+    
+    return jsonify({'items': items, 'total': total})
+
+@app.route('/api/cart/add', methods=['POST'])
+def api_add_to_cart():
+    data = request.json
+    user_id = session.get('user_id', 'guest_' + request.remote_addr)
+    product_id = data.get('product_id')
+    quantity = data.get('quantity', 1)
+    
+    existing = cart_collection.find_one({
+        'user_id': user_id,
+        'product_id': product_id
+    })
+    
+    if existing:
+        cart_collection.update_one(
+            {'_id': existing['_id']},
+            {'$inc': {'quantity': quantity}}
+        )
     else:
-        return jsonify({'success': False, 'message': 'Invalid coupon code'}), 400
+        cart_collection.insert_one({
+            'user_id': user_id,
+            'product_id': product_id,
+            'quantity': quantity,
+            'added_at': datetime.now()
+        })
+    
+    return jsonify({'success': True})
 
-# Order confirmation route
-@app.route('/order-confirmation/<order_id>')
-def order_confirmation(order_id):
-    if 'user_id' not in session:
-        return redirect(url_for('auth.login'))
-    
-    from models.order import Order
-    orders = Order.get_user_orders(session['user_id'])
-    order = next((o for o in orders if o['order_id'] == order_id), None)
-    
-    if not order:
-        return render_template('404.html'), 404
-    
-    return render_template('order_confirmation.html', order=order)
+@app.route('/api/cart/remove/<product_id>', methods=['DELETE'])
+def api_remove_from_cart(product_id):
+    user_id = session.get('user_id', 'guest_' + request.remote_addr)
+    cart_collection.delete_one({'user_id': user_id, 'product_id': product_id})
+    return jsonify({'success': True})
 
-# Search suggestions API
-@app.route('/api/search/suggestions')
-def search_suggestions():
-    query = request.args.get('q', '')
-    if len(query) < 2:
-        return jsonify([])
+# ============================================
+# WISHLIST ROUTES
+# ============================================
+
+@app.route('/api/wishlist', methods=['GET'])
+def api_get_wishlist():
+    user_id = session.get('user_id', 'guest_' + request.remote_addr)
+    wishlist_items = list(wishlist_collection.find({'user_id': user_id}))
     
-    products, _ = Product.get_all_products(page=1, per_page=5, search=query)
-    suggestions = [{'name': p['name'], 'id': p['_id']} for p in products]
-    return jsonify(suggestions)
+    items = []
+    for item in wishlist_items:
+        product = products_collection.find_one({'_id': ObjectId(item['product_id'])})
+        if product:
+            product['_id'] = str(product['_id'])
+            items.append(product)
+    
+    return jsonify(items)
+
+@app.route('/api/wishlist/toggle', methods=['POST'])
+def api_toggle_wishlist():
+    data = request.json
+    user_id = session.get('user_id', 'guest_' + request.remote_addr)
+    product_id = data.get('product_id')
+    
+    existing = wishlist_collection.find_one({
+        'user_id': user_id,
+        'product_id': product_id
+    })
+    
+    if existing:
+        wishlist_collection.delete_one({'_id': existing['_id']})
+        return jsonify({'success': True, 'action': 'removed'})
+    else:
+        wishlist_collection.insert_one({
+            'user_id': user_id,
+            'product_id': product_id,
+            'added_at': datetime.now()
+        })
+        return jsonify({'success': True, 'action': 'added'})
+
+# ============================================
+# ORDER ROUTES
+# ============================================
+
+@app.route('/orders')
+@login_required
+def orders_page():
+    user_orders = list(orders_collection.find({'user_id': session['user_id']}).sort('created_at', -1))
+    for order in user_orders:
+        order['_id'] = str(order['_id'])
+    return render_template('orders.html', orders=user_orders)
+
+@app.route('/order/<order_id>')
+@login_required
+def order_detail(order_id):
+    try:
+        order = orders_collection.find_one({
+            '_id': ObjectId(order_id),
+            'user_id': session['user_id']
+        })
+        if not order:
+            flash('Order not found', 'danger')
+            return redirect(url_for('orders_page'))
+        
+        order['_id'] = str(order['_id'])
+        return render_template('order_detail.html', order=order)
+    except:
+        flash('Order not found', 'danger')
+        return redirect(url_for('orders_page'))
+
+@app.route('/api/place-order', methods=['POST'])
+@login_required
+def api_place_order():
+    user_id = session['user_id']
+    cart_items = list(cart_collection.find({'user_id': user_id}))
+    
+    if not cart_items:
+        return jsonify({'success': False, 'message': 'Cart is empty'})
+    
+    items = []
+    total = 0
+    
+    for item in cart_items:
+        product = products_collection.find_one({'_id': ObjectId(item['product_id'])})
+        if product:
+            items.append({
+                'product_id': str(product['_id']),
+                'name': product['name'],
+                'price': product['price'],
+                'quantity': item['quantity'],
+                'image': product.get('image', '')
+            })
+            total += product['price'] * item['quantity']
+    
+    order = {
+        'user_id': user_id,
+        'order_number': f"ORD-{datetime.now().strftime('%Y%m%d%H%M%S')}",
+        'items': items,
+        'total_amount': total,
+        'status': 'pending',
+        'created_at': datetime.now(),
+        'shipping_address': users_collection.find_one({'_id': ObjectId(user_id)}).get('address', '')
+    }
+    
+    result = orders_collection.insert_one(order)
+    
+    # Clear cart
+    cart_collection.delete_many({'user_id': user_id})
+    
+    # Update user stats
+    users_collection.update_one(
+        {'_id': ObjectId(user_id)},
+        {'$inc': {'total_orders': 1, 'total_spent': total}}
+    )
+    
+    return jsonify({
+        'success': True,
+        'order_id': str(result.inserted_id),
+        'order_number': order['order_number']
+    })
+
+# ============================================
+# FETCH PRODUCTS FROM API
+# ============================================
+
+@app.route('/admin/fetch-products', methods=['GET', 'POST'])
+def admin_fetch_products():
+    if request.method == 'POST':
+        source = request.form.get('source')
+        new_count = 0
+        
+        if source == 'fakestore':
+            url = 'https://fakestoreapi.com/products'
+            response = requests.get(url)
+            api_products = response.json()
+            
+            for p in api_products:
+                product = {
+                    'name': p['title'][:100],
+                    'price': p['price'],
+                    'category': p['category'].replace("'", "").title(),
+                    'description': p['description'],
+                    'image': p['image'],
+                    'rating': p['rating']['rate'],
+                    'stock': 50,
+                    'created_at': datetime.now()
+                }
+                try:
+                    products_collection.insert_one(product)
+                    new_count += 1
+                except:
+                    pass
+            
+            flash(f'Added {new_count} new products from FakeStore!', 'success')
+        
+        elif source == 'dummyjson':
+            url = 'https://dummyjson.com/products?limit=30'
+            response = requests.get(url)
+            data = response.json()
+            
+            for p in data['products']:
+                product = {
+                    'name': p['title'],
+                    'price': p['price'],
+                    'category': p['category'].title(),
+                    'description': p['description'],
+                    'image': p['thumbnail'],
+                    'rating': p['rating'],
+                    'stock': p['stock'],
+                    'created_at': datetime.now()
+                }
+                try:
+                    products_collection.insert_one(product)
+                    new_count += 1
+                except:
+                    pass
+            
+            flash(f'Added {new_count} new products from DummyJSON!', 'success')
+        
+        return redirect(url_for('admin_fetch_products'))
+    
+    product_count = products_collection.count_documents({})
+    return render_template('admin_fetch.html', product_count=product_count)
+
+# ============================================
+# PAGE ROUTES (FIXED - No duplicates)
+# ============================================
+
+@app.route('/')
+def home():
+    """Homepage - shows featured products"""
+    products = list(products_collection.find().limit(8))
+    for product in products:
+        product['_id'] = str(product['_id'])
+    return render_template('index.html', products=products)
+
+@app.route('/shop')
+def shop_page():
+    """Shop page - shows all products with filters"""
+    # Get filter parameters
+    category = request.args.get('category', '')
+    search = request.args.get('search', '')
+    sort = request.args.get('sort', 'latest')
+    page = int(request.args.get('page', 1))
+    per_page = 12
+    
+    # Build query
+    query = {}
+    if category:
+        query['category'] = category
+    if search:
+        query['name'] = {'$regex': search, '$options': 'i'}
+    
+    # Sort options
+    sort_options = {
+        'latest': ('created_at', -1),
+        'price_asc': ('price', 1),
+        'price_desc': ('price', -1),
+        'rating': ('rating', -1)
+    }
+    sort_field, sort_order = sort_options.get(sort, ('created_at', -1))
+    
+    # Get total count for pagination
+    total_products = products_collection.count_documents(query)
+    total_pages = (total_products + per_page - 1) // per_page
+    
+    # Get products
+    products = list(products_collection.find(query)
+                   .sort(sort_field, sort_order)
+                   .skip((page - 1) * per_page)
+                   .limit(per_page))
+    
+    for product in products:
+        product['_id'] = str(product['_id'])
+    
+    return render_template('shop.html', 
+                         products=products,
+                         total_products=total_products,
+                         total_pages=total_pages,
+                         current_page=page,
+                         category=category,
+                         search=search,
+                         sort=sort)
+
+@app.route('/login')
+def login_page():
+    return render_template('login.html')
+
+@app.route('/register')
+def register_page():
+    return render_template('register.html')
 
 if __name__ == '__main__':
-    host = getattr(Config, 'HOST', '0.0.0.0')
-    port = getattr(Config, 'PORT', 5000)
-    debug = getattr(Config, 'DEBUG', True)
-    
-    print('=' * 50)
-    print('🚀 Starting FashionHub E-Commerce Application')
-    print('=' * 50)
-    print(f'📍 Server running at: http://{host}:{port}')
-    print(f'🔧 Debug mode: {debug}')
-    print('=' * 50)
-    
-    app.run(host=host, port=port, debug=debug)
+    app.run(debug=True, port=int(os.getenv('PORT', 5000)))
