@@ -1,0 +1,348 @@
+{% extends "base.html" %}
+
+{% block title %}Checkout - FashionHub{% endblock %}
+
+{% block content %}
+<style>
+    .checkout-container {
+        max-width: 1200px;
+        margin: 40px auto;
+        padding: 0 20px;
+    }
+    
+    .checkout-wrapper {
+        display: grid;
+        grid-template-columns: 1fr 400px;
+        gap: 30px;
+    }
+    
+    /* Cart Items Section */
+    .cart-items-section {
+        background: white;
+        border-radius: 20px;
+        padding: 25px;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+    }
+    
+    .section-title {
+        font-size: 1.3rem;
+        font-weight: 700;
+        color: #2c3e50;
+        margin-bottom: 20px;
+        padding-bottom: 10px;
+        border-bottom: 2px solid #f0f0f0;
+    }
+    
+    .cart-item {
+        display: flex;
+        gap: 20px;
+        padding: 20px 0;
+        border-bottom: 1px solid #eee;
+    }
+    
+    .cart-item:last-child {
+        border-bottom: none;
+    }
+    
+    .cart-item-image {
+        width: 100px;
+        height: 100px;
+        object-fit: cover;
+        border-radius: 12px;
+    }
+    
+    .cart-item-details {
+        flex: 1;
+    }
+    
+    .cart-item-name {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #2c3e50;
+        margin-bottom: 5px;
+    }
+    
+    .cart-item-price {
+        color: #e74c3c;
+        font-weight: 700;
+        margin-bottom: 5px;
+    }
+    
+    .cart-item-quantity {
+        color: #666;
+        font-size: 0.9rem;
+    }
+    
+    .cart-item-subtotal {
+        text-align: right;
+        font-weight: 700;
+        color: #2c3e50;
+        font-size: 1.1rem;
+    }
+    
+    /* Order Summary Section */
+    .order-summary {
+        background: white;
+        border-radius: 20px;
+        padding: 25px;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+        position: sticky;
+        top: 20px;
+        height: fit-content;
+    }
+    
+    .summary-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 12px 0;
+        border-bottom: 1px solid #f0f0f0;
+    }
+    
+    .summary-row.total {
+        border-top: 2px solid #2c3e50;
+        border-bottom: none;
+        font-size: 1.3rem;
+        font-weight: 700;
+        color: #e74c3c;
+        margin-top: 10px;
+        padding-top: 15px;
+    }
+    
+    /* Form Section */
+    .form-section {
+        background: white;
+        border-radius: 20px;
+        padding: 25px;
+        margin-top: 30px;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+    }
+    
+    .form-group {
+        margin-bottom: 20px;
+    }
+    
+    .form-group label {
+        display: block;
+        font-weight: 600;
+        margin-bottom: 8px;
+        color: #333;
+    }
+    
+    .form-group input,
+    .form-group textarea {
+        width: 100%;
+        padding: 12px 15px;
+        border: 1px solid #ddd;
+        border-radius: 10px;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+    }
+    
+    .form-group input:focus,
+    .form-group textarea:focus {
+        outline: none;
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102,126,234,0.1);
+    }
+    
+    .btn-place-order {
+        background: linear-gradient(135deg, #27ae60, #2ecc71);
+        color: white;
+        width: 100%;
+        padding: 15px;
+        border: none;
+        border-radius: 10px;
+        font-size: 1.1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        margin-top: 10px;
+    }
+    
+    .btn-place-order:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(39,174,96,0.3);
+    }
+    
+    .empty-cart {
+        text-align: center;
+        padding: 60px;
+        background: white;
+        border-radius: 20px;
+    }
+    
+    .error-message {
+        color: #e74c3c;
+        font-size: 0.85rem;
+        margin-top: 5px;
+    }
+    
+    @media (max-width: 768px) {
+        .checkout-wrapper {
+            grid-template-columns: 1fr;
+        }
+        
+        .cart-item {
+            flex-direction: column;
+            text-align: center;
+        }
+        
+        .cart-item-subtotal {
+            text-align: center;
+        }
+        
+        .order-summary {
+            position: static;
+        }
+    }
+</style>
+
+<div class="checkout-container">
+    <h2 class="mb-4"><i class="fas fa-credit-card"></i> Checkout</h2>
+    
+    {% if cart and cart|length > 0 %}
+    <div class="checkout-wrapper">
+        <!-- Left Column - Cart Items -->
+        <div>
+            <div class="cart-items-section">
+                <div class="section-title">
+                    <i class="fas fa-shopping-bag"></i> Your Items ({{ cart|length }})
+                </div>
+                
+                {% for item in cart %}
+                <div class="cart-item">
+                    <img class="cart-item-image"
+                         src="{% if item.image and item.image.startswith('http') %}
+                                {{ item.image }}
+                              {% elif item.image %}
+                                {{ url_for('static', filename='uploads/' + item.image) }}
+                              {% else %}
+                                https://via.placeholder.com/100?text=Product
+                              {% endif %}"
+                         alt="{{ item.name }}"
+                         onerror="this.src='https://via.placeholder.com/100?text=Product'">
+                    
+                    <div class="cart-item-details">
+                        <div class="cart-item-name">{{ item.name }}</div>
+                        <div class="cart-item-price">₹{{ "{:,.0f}".format(item.price) }}</div>
+                        <div class="cart-item-quantity">Quantity: {{ item.quantity }}</div>
+                    </div>
+                    
+                    <div class="cart-item-subtotal">
+                        ₹{{ "{:,.0f}".format(item.subtotal) }}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            
+            <!-- Order Form -->
+            <div class="form-section">
+                <div class="section-title">
+                    <i class="fas fa-truck"></i> Delivery Information
+                </div>
+                
+                <form method="POST" action="/place-order" id="checkoutForm">
+                    <div class="form-group">
+                        <label>Mobile Number *</label>
+                        <input type="tel" name="mobile" id="mobile" class="form-control" 
+                               placeholder="Enter 10-digit mobile number" required pattern="[0-9]{10}">
+                        <div class="error-message" id="mobileError"></div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Delivery Address *</label>
+                        <textarea name="address" id="address" class="form-control" rows="4" 
+                                  placeholder="Enter your complete delivery address" required></textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Payment Method</label>
+                        <select name="payment_method" class="form-control" required>
+                            <option value="cod">Cash on Delivery (COD)</option>
+                            <option value="online">Online Payment (Coming Soon)</option>
+                        </select>
+                    </div>
+                    
+                    <button type="submit" class="btn-place-order" id="submitBtn">
+                        <i class="fas fa-check-circle"></i> Place Order (₹{{ "{:,.0f}".format(total) }})
+                    </button>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Right Column - Order Summary -->
+        <div>
+            <div class="order-summary">
+                <div class="section-title">
+                    <i class="fas fa-receipt"></i> Order Summary
+                </div>
+                
+                <div class="summary-row">
+                    <span>Subtotal ({{ cart|length }} items)</span>
+                    <span>₹{{ "{:,.0f}".format(total) }}</span>
+                </div>
+                
+                <div class="summary-row">
+                    <span>Shipping</span>
+                    <span>FREE</span>
+                </div>
+                
+                <div class="summary-row">
+                    <span>Tax (GST)</span>
+                    <span>Included</span>
+                </div>
+                
+                <div class="summary-row total">
+                    <span>Total Amount</span>
+                    <span>₹{{ "{:,.0f}".format(total) }}</span>
+                </div>
+                
+                <div class="summary-row" style="border-bottom: none; font-size: 0.85rem; color: #666;">
+                    <span>Delivery Time</span>
+                    <span>3-5 Business Days</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    {% else %}
+    <div class="empty-cart">
+        <i class="fas fa-shopping-cart fa-4x mb-3 text-muted"></i>
+        <h3>Your cart is empty</h3>
+        <p>Add some products to your cart before checkout!</p>
+        <a href="/shop" class="btn btn-primary mt-3">Continue Shopping</a>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+    // Form validation
+    document.getElementById('checkoutForm')?.addEventListener('submit', function(e) {
+        const mobile = document.getElementById('mobile')?.value;
+        const address = document.getElementById('address')?.value;
+        let isValid = true;
+        
+        // Validate mobile
+        if (!/^\d{10}$/.test(mobile)) {
+            document.getElementById('mobileError').innerText = 'Please enter a valid 10-digit mobile number';
+            isValid = false;
+            e.preventDefault();
+        } else {
+            document.getElementById('mobileError').innerText = '';
+        }
+        
+        // Validate address
+        if (!address || !address.trim()) {
+            alert('Please enter your delivery address');
+            isValid = false;
+            e.preventDefault();
+        }
+        
+        if (isValid) {
+            const submitBtn = document.getElementById('submitBtn');
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+        }
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,272 @@
+{% extends "base.html" %}
+
+{% block title %}My Wishlist - FashionHub{% endblock %}
+
+{% block content %}
+<style>
+    .wishlist-container {
+        max-width: 1200px;
+        margin: 40px auto;
+        padding: 0 20px;
+    }
+    
+    .wishlist-title {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #2c3e50;
+        margin-bottom: 30px;
+        position: relative;
+        display: inline-block;
+    }
+    
+    .wishlist-title::after {
+        content: '';
+        position: absolute;
+        bottom: -8px;
+        left: 0;
+        width: 50px;
+        height: 3px;
+        background: #e74c3c;
+    }
+    
+    .product-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 30px;
+        margin-top: 20px;
+    }
+    
+    .product-card {
+        background: white;
+        border-radius: 15px;
+        overflow: hidden;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        transition: all 0.3s ease;
+        position: relative;
+    }
+    
+    .product-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+    }
+    
+    .product-image {
+        width: 100%;
+        height: 250px;
+        overflow: hidden;
+    }
+    
+    .product-image img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transition: all 0.3s ease;
+    }
+    
+    .product-card:hover .product-image img {
+        transform: scale(1.05);
+    }
+    
+    .product-info {
+        padding: 15px;
+        text-align: center;
+    }
+    
+    .product-info h4 {
+        font-size: 1rem;
+        font-weight: 600;
+        color: #2c3e50;
+        margin-bottom: 8px;
+    }
+    
+    .price {
+        color: #e74c3c;
+        font-size: 1.2rem;
+        font-weight: 700;
+        margin: 8px 0;
+    }
+    
+    .stock-status {
+        font-size: 0.8rem;
+        margin-bottom: 10px;
+    }
+    
+    .in-stock {
+        color: #27ae60;
+    }
+    
+    .out-of-stock {
+        color: #e74c3c;
+    }
+    
+    .button-group {
+        display: flex;
+        gap: 10px;
+        margin-top: 10px;
+    }
+    
+    .btn-cart {
+        flex: 1;
+        background: #1d3557;
+        color: white;
+        border: none;
+        padding: 8px 12px;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-cart:hover {
+        background: #0f2b3d;
+    }
+    
+    .btn-remove {
+        background: #e74c3c;
+        color: white;
+        border: none;
+        padding: 8px 12px;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-remove:hover {
+        background: #c0392b;
+    }
+    
+    .empty-wishlist {
+        text-align: center;
+        padding: 60px;
+        background: white;
+        border-radius: 15px;
+    }
+    
+    .empty-wishlist i {
+        font-size: 4rem;
+        color: #ccc;
+        margin-bottom: 20px;
+    }
+    
+    .empty-wishlist h3 {
+        color: #2c3e50;
+        margin-bottom: 10px;
+    }
+    
+    @media (max-width: 768px) {
+        .product-grid {
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 20px;
+        }
+    }
+    
+    @media (max-width: 576px) {
+        .product-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
+<div class="wishlist-container">
+    <h2 class="wishlist-title"><i class="fas fa-heart"></i> My Wishlist</h2>
+    
+    {% if wishlist %}
+    <div class="product-grid">
+        {% for product in wishlist %}
+        <div class="product-card">
+            <div class="product-image">
+<img src="{% if product.image.startswith('http') %}
+{{ product.image }}
+{% else %}
+{{ url_for('static', filename='uploads/' + product.image) }}
+{% endif %}"
+alt="{{ product.name }}"
+onerror="this.src='https://via.placeholder.com/300?text=Product'">
+            </div>
+            <div class="product-info">
+                <h4>{{ product.name[:50] }}</h4>
+                <div class="price">₹{{ "{:,.0f}".format(product.price) }}</div>
+                <div class="stock-status">
+                    {% if product.stock > 0 %}
+                    <span class="in-stock"><i class="fas fa-check-circle"></i> In Stock</span>
+                    {% else %}
+                    <span class="out-of-stock"><i class="fas fa-times-circle"></i> Out of Stock</span>
+                    {% endif %}
+                </div>
+                <div class="button-group">
+                    <button class="btn-cart" onclick="addToCart('{{ product._id }}')" {% if product.stock == 0 %}disabled{% endif %}>
+                        <i class="fas fa-cart-plus"></i> Add to Cart
+                    </button>
+                    <button class="btn-remove" onclick="removeFromWishlist('{{ product._id }}')">
+                        <i class="fas fa-trash"></i> Remove
+                    </button>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-wishlist">
+        <i class="far fa-heart"></i>
+        <h3>Your wishlist is empty</h3>
+        <p>Start adding products you love to your wishlist!</p>
+        <a href="/shop" class="btn btn-primary mt-3">Browse Products</a>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+    async function addToCart(productId) {
+        try {
+            const res = await fetch('/api/cart/add', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ product_id: productId, quantity: 1 })
+            });
+            const data = await res.json();
+            
+            if (data.success) {
+                showToast('Added to cart!', 'success');
+                updateCartCount();
+            } else {
+                showToast(data.message || 'Failed to add to cart', 'error');
+            }
+        } catch (error) {
+            showToast('Error adding to cart', 'error');
+        }
+    }
+    
+    async function removeFromWishlist(productId) {
+        if (!confirm('Remove this item from your wishlist?')) return;
+        
+        try {
+            const response = await axios.post('/api/wishlist/toggle', { product_id: productId });
+            if (response.data.success) {
+                showToast('Removed from wishlist', 'success');
+                setTimeout(() => location.reload(), 1000);
+            }
+        } catch (error) {
+            showToast('Failed to remove from wishlist', 'error');
+        }
+    }
+    
+    function showToast(message, type) {
+        const toast = document.createElement('div');
+        toast.className = `toast-notification ${type}`;
+        toast.innerHTML = `<i class="fas ${type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'}"></i> ${message}`;
+        toast.style.cssText = 'position:fixed; bottom:20px; right:20px; background:#28a745; color:white; padding:12px 20px; border-radius:8px; z-index:9999;';
+        if (type === 'error') toast.style.background = '#dc3545';
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 3000);
+    }
+    
+    async function updateCartCount() {
+        try {
+            const res = await fetch('/api/cart');
+            const data = await res.json();
+            const cartCount = data.items?.reduce((sum, item) => sum + item.quantity, 0) || 0;
+            const cartBadge = document.getElementById('cartCount');
+            if (cartBadge) cartBadge.innerText = cartCount;
+        } catch (error) {}
+    }
+</script>
+{% endblock %}

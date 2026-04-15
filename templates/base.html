@@ -120,17 +120,18 @@
                         <a class="nav-link" href="/shop">Shop</a>
                     </li>
                     <li class="nav-item cart-badge">
-                        <a class="nav-link" href="#" id="cartBtn">
+                        <a class="nav-link" href="/cart" id="cartBtn">
                             <i class="fas fa-shopping-cart"></i>
                             <span id="cartCount" class="badge-count">0</span>
                         </a>
                     </li>
-                    <li class="nav-item wishlist-badge">
-                        <a class="nav-link" href="#" id="wishlistBtn">
-                            <i class="far fa-heart"></i>
-                            <span id="wishlistCount" class="badge-count">0</span>
-                        </a>
-                    </li>
+                    <!-- Add this link in your navbar next to Cart -->
+<li class="nav-item">
+    <a class="nav-link" href="{{ url_for('wishlist_page') }}">
+        <i class="fas fa-heart"></i> Wishlist
+        <span id="wishlistCount" class="badge-count">{{ wishlist_count|default(0) }}</span>
+    </a>
+</li>
                     
                     {% if session.logged_in %}
                     <li class="nav-item dropdown">
@@ -141,7 +142,7 @@
                             <li><a class="dropdown-item" href="/profile"><i class="fas fa-user"></i> Profile</a></li>
                             <li><a class="dropdown-item" href="/orders"><i class="fas fa-box"></i> Orders</a></li>
                             <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="#" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
+                            <li><a class="dropdown-item" href="/logout" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
                         </ul>
                     </li>
                     {% else %}
@@ -223,12 +224,12 @@
         
         document.getElementById('cartBtn')?.addEventListener('click', (e) => {
             e.preventDefault();
-            window.location.href = '/shop';
+            window.location.href = '/cart';
         });
         
         document.getElementById('wishlistBtn')?.addEventListener('click', (e) => {
             e.preventDefault();
-            window.location.href = '/shop';
+            window.location.href = '/api/wishlist';
         });
         
         loadCounts();

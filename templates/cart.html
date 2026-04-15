@@ -19,8 +19,13 @@
         width: 100%;
         background: white;
         border-radius: 12px;
-        overflow: hidden;
+        overflow-x: auto;
+        display: block;
         box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    }
+    .cart-table table {
+        width: 100%;
+        border-collapse: collapse;
     }
     .cart-table th {
         background: #2c3e50;
@@ -42,14 +47,21 @@
         width: 60px;
         padding: 5px;
         text-align: center;
+        border: 1px solid #ddd;
+        border-radius: 5px;
     }
     .btn-remove {
         background: #e74c3c;
         color: white;
         border: none;
-        padding: 5px 12px;
+        padding: 8px 15px;
         border-radius: 5px;
         cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    .btn-remove:hover {
+        background: #c0392b;
+        transform: translateY(-2px);
     }
     .cart-summary {
         background: white;
@@ -68,12 +80,34 @@
         cursor: pointer;
         font-size: 1.1rem;
         margin-top: 15px;
+        transition: all 0.3s ease;
+    }
+    .btn-checkout:hover {
+        background: #218838;
+        transform: translateY(-2px);
     }
     .empty-cart {
         text-align: center;
         padding: 60px;
         background: white;
         border-radius: 12px;
+    }
+    
+    @media (max-width: 768px) {
+        .cart-table {
+            font-size: 0.85rem;
+        }
+        .cart-table th, .cart-table td {
+            padding: 10px;
+        }
+        .cart-item-image {
+            width: 50px;
+            height: 50px;
+        }
+        .btn-remove {
+            padding: 5px 10px;
+            font-size: 0.75rem;
+        }
     }
 </style>
 
@@ -82,47 +116,57 @@
         <h2><i class="fas fa-shopping-cart"></i> My Cart</h2>
     </div>
     
-    {% if cart %}
-    <table class="cart-table">
-        <thead>
-            <tr>
-                <th>Product</th>
-                <th>Name</th>
-                <th>Price</th>
-                <th>Quantity</th>
-                <th>Subtotal</th>
-                <th>Action</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for item in cart %}
-            <tr data-product-id="{{ item.product_id }}">
-                <td>
-                    <img src="{{ url_for('static', filename='uploads/' + item.image) if item.image else 'https://via.placeholder.com/80' }}" 
-                         class="cart-item-image" alt="{{ item.name }}">
-                </td>
-                <td>{{ item.name }}</td>
-                <td>₹{{ item.price }}</td>
-                <td>
-                    <input type="number" class="quantity-input" value="{{ item.quantity }}" min="1" 
-                           onchange="updateQuantity('{{ item.product_id }}', this.value)">
-                </td>
-                <td class="subtotal">₹{{ item.subtotal }}</td>
-                <td>
-                    <button class="btn-remove" onclick="removeFromCart('{{ item.product_id }}')">
-                        <i class="fas fa-trash"></i> Remove
-                    </button>
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+    {% if cart and cart|length > 0 %}
+    <div class="cart-table">
+        <table>
+            <thead>
+                <tr>
+                    <th>Product</th>
+                    <th>Name</th>
+                    <th>Price</th>
+                    <th>Quantity</th>
+                    <th>Subtotal</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in cart %}
+                <tr data-product-id="{{ item.product_id }}">
+                    <td>
+                        <img class="cart-item-image"
+                             src="{% if item.image and item.image.startswith('http') %}
+                                    {{ item.image }}
+                                  {% elif item.image %}
+                                    {{ url_for('static', filename='uploads/' + item.image) }}
+                                  {% else %}
+                                    https://via.placeholder.com/80?text=Product
+                                  {% endif %}"
+                             alt="{{ item.name }}"
+                             onerror="this.src='https://via.placeholder.com/80?text=Product'">
+                    </td>
+                    <td>{{ item.name }}</td>
+                    <td>₹{{ "{:,.0f}".format(item.price) }}</td>
+                    <td>
+                        <input type="number" class="quantity-input" value="{{ item.quantity }}" min="1" 
+                               onchange="updateQuantity('{{ item.product_id }}', this.value)">
+                    </td>
+                    <td class="subtotal">₹{{ "{:,.0f}".format(item.subtotal) }}</td>
+                    <td>
+                        <button class="btn-remove" onclick="removeFromCart('{{ item.product_id }}')">
+                            <i class="fas fa-trash"></i> Remove
+                        </button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
     
     <div class="cart-summary">
-        <h3>Total: ₹<span id="cartTotal">{{ total }}</span></h3>
-        <button class="btn-checkout" onclick="checkout()">
-            <i class="fas fa-credit-card"></i> Proceed to Checkout
-        </button>
+        <h3>Total: ₹<span id="cartTotal">{{ "{:,.0f}".format(total) }}</span></h3>
+       <button class="btn-checkout" onclick="proceedToCheckout()">
+    <i class="fas fa-credit-card"></i> Proceed to Checkout
+</button>
     </div>
     
     {% else %}
@@ -136,7 +180,14 @@
 </div>
 
 <script>
+    // Update quantity of item in cart
     async function updateQuantity(productId, quantity) {
+        if (quantity < 1) {
+            alert('Quantity must be at least 1');
+            location.reload();
+            return;
+        }
+        
         try {
             const res = await fetch('/api/cart/update', {
                 method: 'POST',
@@ -146,12 +197,16 @@
             const data = await res.json();
             if (data.success) {
                 location.reload();
+            } else {
+                alert(data.message || 'Failed to update cart');
             }
         } catch (error) {
             console.error('Error updating cart:', error);
+            alert('Error updating cart');
         }
     }
     
+    // Remove item from cart
     async function removeFromCart(productId) {
         if (!confirm('Remove this item from cart?')) return;
         
@@ -162,14 +217,20 @@
             const data = await res.json();
             if (data.success) {
                 location.reload();
+            } else {
+                alert(data.message || 'Failed to remove item');
             }
         } catch (error) {
             console.error('Error removing from cart:', error);
+            alert('Error removing from cart');
         }
     }
     
-    function checkout() {
-        window.location.href = '/cart';
+    // Proceed to checkout
+    function proceedToCheckout() {
+        // You can either redirect to cart page or implement checkout logic
+        // Since this is already the cart page, you can implement order placement
+        window.location.href = '/checkout';
     }
 </script>
 {% endblock %}

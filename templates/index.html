@@ -4,7 +4,7 @@
 
 {% block content %}
 <style>
-    /* HERO SECTION */
+    /* Hero Section */
     .hero {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         min-height: 500px;
@@ -75,7 +75,7 @@
         }
     }
     
-    /* FEATURED PRODUCTS SECTION */
+    /* Featured Products Section */
     .featured {
         padding: 60px 20px;
         max-width: 1200px;
@@ -124,7 +124,7 @@
     
     .product-card img {
         width: 100%;
-        height: 300px;
+        height: 250px;
         object-fit: cover;
         transition: all 0.3s ease;
     }
@@ -135,26 +135,28 @@
     
     .product-card h4 {
         padding: 15px 15px 5px;
-        font-size: 1.1rem;
+        font-size: 1rem;
         font-weight: 600;
         color: #2c3e50;
     }
     
-    .product-card p {
-        padding: 0 15px 15px;
+    .product-card .price {
+        padding: 0 15px;
         color: #e74c3c;
-        font-size: 1.3rem;
+        font-size: 1.2rem;
         font-weight: 700;
+        margin: 5px 0;
     }
     
     .product-card .rating {
-        padding: 0 15px 10px;
+        padding: 0 15px;
         color: #f39c12;
-        font-size: 0.9rem;
+        font-size: 0.85rem;
+        margin-bottom: 10px;
     }
     
-    .product-card .btn-view {
-        margin: 0 15px 15px;
+    .product-card .btn {
+        margin: 10px 15px 15px;
         width: calc(100% - 30px);
         background: #2c3e50;
         color: white;
@@ -164,11 +166,11 @@
         transition: all 0.3s ease;
     }
     
-    .product-card .btn-view:hover {
+    .product-card .btn:hover {
         background: #e74c3c;
     }
     
-    /* CATEGORIES SECTION */
+    /* Categories Section */
     .categories {
         background: #f8f9fa;
         padding: 60px 20px;
@@ -230,7 +232,7 @@
         color: #2c3e50;
     }
     
-    /* BANNER SECTION */
+    /* Banner Section */
     .banner {
         background: linear-gradient(135deg, #2c3e50, #1a252f);
         color: white;
@@ -262,27 +264,19 @@
         transform: translateY(-3px);
     }
     
-    /* RESPONSIVE */
     @media (max-width: 768px) {
         .hero h1 {
             font-size: 2rem;
         }
-        
         .hero p {
             font-size: 1rem;
         }
-        
         .featured h2, .categories h2 {
             font-size: 1.8rem;
         }
-        
         .product-grid {
             grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
             gap: 20px;
-        }
-        
-        .product-card img {
-            height: 250px;
         }
     }
     
@@ -291,42 +285,9 @@
             grid-template-columns: 1fr;
         }
     }
-    
-    /* LOADING STATE */
-    .loading {
-        text-align: center;
-        padding: 60px;
-    }
-    
-    .spinner {
-        border: 3px solid #f3f3f3;
-        border-top: 3px solid #e74c3c;
-        border-radius: 50%;
-        width: 50px;
-        height: 50px;
-        animation: spin 1s linear infinite;
-        margin: 0 auto;
-    }
-    
-    @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-    }
-    
-    .no-products {
-        text-align: center;
-        padding: 60px;
-        color: #666;
-    }
-    
-    .no-products i {
-        font-size: 4rem;
-        margin-bottom: 20px;
-        color: #ccc;
-    }
 </style>
 
-<!-- HERO SECTION -->
+<!-- Hero Section -->
 <section class="hero">
     <div class="hero-content">
         <h1>Discover Your Style</h1>
@@ -335,43 +296,7 @@
     </div>
 </section>
 
-<!-- FEATURED PRODUCTS SECTION -->
-<section class="featured container">
-    <h2>🔥 Featured Products</h2>
-    
-    {% if products %}
-    <div class="product-grid">
-        {% for product in products %}
-        <div class="product-card" onclick="location.href='/product/{{ product._id }}'">
-            <img src="{{ product.image }}" alt="{{ product.name }}" onerror="this.src='https://via.placeholder.com/300x300?text=Product'">
-            <h4>{{ product.name[:50] }}</h4>
-            <div class="rating">
-                {% for i in range(product.rating|int) %}
-                <i class="fas fa-star"></i>
-                {% endfor %}
-                {% for i in range(5 - product.rating|int) %}
-                <i class="far fa-star"></i>
-                {% endfor %}
-                <span class="text-muted ms-2">({{ product.rating }})</span>
-            </div>
-            <p>₹{{ "{:,.0f}".format(product.price) }}</p>
-            <button class="btn-view" onclick="event.stopPropagation(); addToCart('{{ product._id }}')">
-                <i class="fas fa-shopping-cart"></i> Add to Cart
-            </button>
-        </div>
-        {% endfor %}
-    </div>
-    {% else %}
-    <div class="no-products">
-        <i class="fas fa-box-open"></i>
-        <h3>No Products Yet</h3>
-        <p>Go to <a href="/admin/fetch-products">/admin/fetch-products</a> to import products from external APIs</p>
-        <a href="/admin/add-product" class="btn btn-primary mt-3">Add Product Manually</a>
-    </div>
-    {% endif %}
-</section>
-
-<!-- CATEGORIES SECTION -->
+<!-- Categories -->
 <section class="categories">
     <div class="container">
         <h2>Shop by Category</h2>
@@ -396,70 +321,5 @@
     </div>
 </section>
 
-<!-- BANNER SECTION -->
-<section class="banner">
-    <div class="container">
-        <h2>Summer Sale 2024</h2>
-        <p>Get up to 50% off on selected items. Limited time offer!</p>
-        <a href="/shop" class="btn">Shop Now <i class="fas fa-tags ms-2"></i></a>
-    </div>
-</section>
 
-<script>
-    async function addToCart(productId) {
-        try {
-            const response = await axios.post('/api/cart/add', { 
-                product_id: productId, 
-                quantity: 1 
-            });
-            
-            if (response.data.success) {
-                showNotification('Product added to cart!', 'success');
-                updateCartCount();
-            }
-        } catch (error) {
-            if (error.response?.status === 401) {
-                showNotification('Please login to add items to cart', 'warning');
-                setTimeout(() => {
-                    window.location.href = '/login';
-                }, 1500);
-            } else {
-                showNotification('Failed to add to cart', 'danger');
-            }
-        }
-    }
-    
-    async function updateCartCount() {
-        try {
-            const response = await axios.get('/api/cart');
-            const cartCount = response.data.items?.reduce((sum, item) => sum + item.quantity, 0) || 0;
-            const cartBadge = document.getElementById('cartCount');
-            if (cartBadge) cartBadge.innerText = cartCount;
-        } catch (error) {
-            console.error('Error updating cart count:', error);
-        }
-    }
-    
-    function showNotification(message, type) {
-        // Create notification element
-        const notification = document.createElement('div');
-        notification.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
-        notification.style.cssText = 'top: 80px; right: 20px; z-index: 9999; min-width: 250px;';
-        notification.innerHTML = `
-            ${message}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        `;
-        document.body.appendChild(notification);
-        
-        // Auto remove after 3 seconds
-        setTimeout(() => {
-            notification.remove();
-        }, 3000);
-    }
-    
-    // Update cart count on page load
-    document.addEventListener('DOMContentLoaded', function() {
-        updateCartCount();
-    });
-</script>
 {% endblock %}

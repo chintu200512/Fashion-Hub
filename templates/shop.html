@@ -437,7 +437,7 @@
         </div>
         
         <div class="search-box">
-            <input type="text" id="searchInput" placeholder="Search products...">
+            <input type="text" id="searchInput" placeholder="Search products..." value="{{ search }}">
             <button class="btn-filter" onclick="applyFilters()">
                 <i class="fas fa-search"></i> Search
             </button>
@@ -465,9 +465,13 @@
             </button>
             
             <div class="product-image">
-                <img src="{{ url_for('static', filename='uploads/' + product.image) if product.image else 'https://via.placeholder.com/300x300?text=Product' }}" 
-                     alt="{{ product.name }}"
-                     onerror="this.src='https://via.placeholder.com/300x300?text=Product'">
+<img src="{% if product.image.startswith('http') %}
+{{ product.image }}
+{% else %}
+{{ url_for('static', filename='uploads/' + product.image) }}
+{% endif %}"
+onerror="this.src='https://via.placeholder.com/300'"
+alt="{{ product.name }}">
             </div>
             
             <div class="product-info">
@@ -493,27 +497,15 @@
                     <span class="original-price">₹{{ "{:,.0f}".format(product.original_price) }}</span>
                     {% endif %}
                 </p>
-                
-                <div class="stock-status">
-                    {% if product.stock > 0 %}
-                        {% if product.stock < 10 %}
-                        <span class="low-stock"><i class="fas fa-exclamation-triangle"></i> Only {{ product.stock }} left!</span>
-                        {% else %}
-                        <span class="in-stock"><i class="fas fa-check-circle"></i> In Stock</span>
-                        {% endif %}
-                    {% else %}
-                    <span class="out-of-stock"><i class="fas fa-times-circle"></i> Out of Stock</span>
-                    {% endif %}
-                </div>
-                
                 <div class="button-group">
-                    <button onclick="addToCart('{{ product._id }}')" class="btn-cart" {% if product.stock == 0 %}disabled{% endif %}>
-                        <i class="fas fa-cart-plus"></i> Add to Cart
-                    </button>
-                    <button onclick="placeOrder('{{ product._id }}')" class="btn-order" {% if product.stock == 0 %}disabled{% endif %}>
-                        <i class="fas fa-shopping-bag"></i> Buy Now
-                    </button>
-                </div>
+    <button onclick="addToCart('{{ product._id }}')" class="btn-cart" {% if product.stock <= 0 %}disabled{% endif %}>
+        <i class="fas fa-cart-plus"></i>
+        {% if product.stock > 0 %}Add to Cart{% else %}Out of Stock{% endif %}
+    </button>
+    <button onclick="placeOrder('{{ product._id }}')" class="btn-order" {% if product.stock == 0 %}disabled{% endif %}>
+        <i class="fas fa-shopping-bag"></i> Buy Now
+    </button>
+</div>
             </div>
         </div>
         {% endfor %}
@@ -523,7 +515,7 @@
     {% if total_pages and total_pages > 1 %}
     <div class="pagination">
         {% if current_page > 1 %}
-        <a href="?page={{ current_page - 1 }}{% if category %}&category={{ category }}{% endif %}{% if search %}&search={{ search }}{% endif %}">
+        <a href="?page={{ current_page - 1 }}{% if category %}&category={{ category }}{% endif %}{% if search %}&search={{ search }}{% endif %}{% if sort %}&sort={{ sort }}{% endif %}">
             <i class="fas fa-chevron-left"></i> Previous
         </a>
         {% endif %}
@@ -532,14 +524,14 @@
             {% if page == current_page %}
             <span class="active">{{ page }}</span>
             {% elif page <= current_page + 2 and page >= current_page - 2 %}
-            <a href="?page={{ page }}{% if category %}&category={{ category }}{% endif %}{% if search %}&search={{ search }}{% endif %}">
+            <a href="?page={{ page }}{% if category %}&category={{ category }}{% endif %}{% if search %}&search={{ search }}{% endif %}{% if sort %}&sort={{ sort }}{% endif %}">
                 {{ page }}
             </a>
             {% endif %}
         {% endfor %}
         
         {% if current_page < total_pages %}
-        <a href="?page={{ current_page + 1 }}{% if category %}&category={{ category }}{% endif %}{% if search %}&search={{ search }}{% endif %}">
+        <a href="?page={{ current_page + 1 }}{% if category %}&category={{ category }}{% endif %}{% if search %}&search={{ search }}{% endif %}{% if sort %}&sort={{ sort }}{% endif %}">
             Next <i class="fas fa-chevron-right"></i>
         </a>
         {% endif %}
@@ -575,7 +567,7 @@
             
             const data = await res.json();
             
-            if (res.ok) {
+            if (res.ok && data.success) {
                 showToast(data.message || 'Added to cart!', 'success');
                 updateCartCount();
             } else {
@@ -588,10 +580,15 @@
     }
     
     // ============================================
-    // PLACE ORDER FUNCTION
+    // PLACE ORDER FUNCTION - FIXED
     // ============================================
     function placeOrder(productId) {
-        window.location.href = "/order/" + productId;
+        if (!productId) {
+            showToast('Invalid product', 'error');
+            return;
+        }
+        // This matches your route: @app.route("/buy/<product_id>")
+        window.location.href = "/buy/" + productId;
     }
     
     // ============================================
@@ -613,6 +610,9 @@
     // TOAST NOTIFICATION
     // ============================================
     function showToast(message, type = 'success') {
+        const existingToasts = document.querySelectorAll('.toast-notification');
+        existingToasts.forEach(toast => toast.remove());
+        
         const toast = document.createElement('div');
         toast.className = `toast-notification ${type}`;
         toast.innerHTML = `
@@ -635,10 +635,11 @@
         const search = document.getElementById('searchInput').value;
         
         let url = '/shop?';
-        if (category) url += `category=${category}&`;
-        if (sortBy) url += `sort=${sortBy}&`;
-        if (search) url += `search=${encodeURIComponent(search)}&`;
+        if (category && category !== '') url += `category=${encodeURIComponent(category)}&`;
+        if (sortBy && sortBy !== 'latest') url += `sort=${encodeURIComponent(sortBy)}&`;
+        if (search && search.trim() !== '') url += `search=${encodeURIComponent(search.trim())}&`;
         
+        url = url.replace(/[?&]$/, '');
         window.location.href = url;
     }
     
@@ -716,7 +717,6 @@
     // INITIALIZATION
     // ============================================
     document.addEventListener('DOMContentLoaded', function() {
-        // Set current filter values from URL
         const urlParams = new URLSearchParams(window.location.search);
         const category = urlParams.get('category');
         const sort = urlParams.get('sort');
@@ -726,37 +726,14 @@
         if (sort) document.getElementById('sortBy').value = sort;
         if (search) document.getElementById('searchInput').value = search;
         
-        // Load wishlist status
         loadWishlistStatus();
-        
-        // Update cart count
         updateCartCount();
         
-        // Add event listeners for filters
         document.getElementById('categoryFilter').addEventListener('change', applyFilters);
         document.getElementById('sortBy').addEventListener('change', applyFilters);
         document.getElementById('searchInput').addEventListener('keypress', function(e) {
             if (e.key === 'Enter') applyFilters();
         });
-        <script>
-async function addToCart(productId){
-
-const res = await fetch('/api/cart/add',{
-method:'POST',
-headers:{
-'Content-Type':'application/json'
-},
-body:JSON.stringify({
-product_id:productId,
-quantity:1
-})
-})
-
-const data = await res.json()
-
-alert(data.message)
-
-}
     });
 </script>
 {% endblock %}
