@@ -200,7 +200,7 @@ def change_password():
         from werkzeug.security import generate_password_hash
         new_hash = generate_password_hash(new_password)
         User.get_collection().update_one(
-            {'user_id': session['user_id']},
+            {'user_id': str(session['user_id'])},
             {'$set': {'password_hash': new_hash}}
         )
         if request.is_json:

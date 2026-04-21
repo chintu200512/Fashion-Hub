@@ -12,6 +12,7 @@ from functools import wraps
 from werkzeug.utils import secure_filename
 import uuid
 import random
+from models.order import Order
 
 load_dotenv()
 
@@ -468,6 +469,7 @@ def place_order():
         address = request.form["address"]
         payment_method = request.form.get("payment_method", "cod")
         
+        # Get cart items
         cart_items = list(cart_collection.find({"user_id": session["user_id"]}))
         
         if not cart_items:
@@ -493,33 +495,39 @@ def place_order():
                 })
                 total += product["price"] * item["quantity"]
         
-        # IMPORTANT: Store user_id as STRING to match session
-        order = {
-            "user_id": str(session["user_id"]),  # Convert to string
-            "user_email": session["user_email"],
-            "user_name": session["user_name"],
-            "items": items,
-            "total_amount": total,
-            "mobile": mobile,
-            "address": address,
-            "payment_method": payment_method,
-            "order_status": "pending",
-            "created_at": datetime.now(),
-            "order_number": f"ORD-{datetime.now().strftime('%Y%m%d%H%M%S')}-{uuid.uuid4().hex[:6]}"
-        }
+
         
-        result = orders_collection.insert_one(order)
-        print(f"Order inserted with ID: {result.inserted_id}")
-        print(f"Order user_id: {order['user_id']}")
+        order_id = Order.create_order(
+            user_id=session["user_id"],
+            items=items,
+            total_amount=total,
+            shipping_address=address,
+            payment_method=payment_method
+        )
         
+        # Also store additional fields in a separate collection or update the order
+        orders_collection.update_one(
+            {"_id": ObjectId(order_id)},
+            {"$set": {
+                "mobile": mobile,
+                "address": address,
+                "order_number": f"ORD-{datetime.now().strftime('%Y%m%d%H%M%S')}-{uuid.uuid4().hex[:6]}",
+                "user_email": session["user_email"],
+                "user_name": session["user_name"]
+            }}
+        )
+        
+        # Update product stocks
         for item in cart_items:
             products_collection.update_one(
                 {"_id": ObjectId(item["product_id"])},
                 {"$inc": {"stock": -item["quantity"]}}
             )
         
+        # Clear cart
         cart_collection.delete_many({"user_id": session["user_id"]})
         
+        # Update user order count
         users_collection.update_one(
             {"_id": ObjectId(session["user_id"])},
             {"$inc": {"total_orders": 1}}
@@ -532,7 +540,8 @@ def place_order():
         print(f"Error placing order: {e}")
         flash(f"Error placing order: {str(e)}", "danger")
         return redirect(url_for("cart_page"))
-# ============================================
+
+
 # ORDER TRACKING ROUTES
 # ============================================
 
@@ -543,41 +552,43 @@ def orders_page():
     try:
         user_id = session.get('user_id')
         
-        print(f"Fetching orders for user_id: {user_id}")
-        print(f"Type of user_id: {type(user_id)}")
+        if not user_id:
+            flash('User not found', 'danger')
+            return redirect(url_for('login_page'))
         
-        # Try both string and ObjectId formats
-        orders = list(orders_collection.find({
-            "$or": [
-                {"user_id": user_id},
-                {"user_id": ObjectId(user_id) if ObjectId.is_valid(user_id) else user_id},
-                {"user_email": session.get('user_email')}
-            ]
-        }).sort('created_at', -1))
+        # Get orders from your Order model
+        orders = Order.get_user_orders(user_id)
         
-        print(f"Found {len(orders)} orders")
+        print(f"Found {len(orders)} orders for user {user_id}")
         
-        # Also check all orders in database (for debugging)
-        all_orders = list(orders_collection.find())
-        print(f"Total orders in database: {len(all_orders)}")
-        
-        # Convert ObjectId to string for template
+        # Process orders to ensure they have required fields for template
         for order in orders:
-            order['_id'] = str(order['_id'])
-            # Ensure date field exists
-            if 'created_at' not in order:
-                order['created_at'] = order.get('order_date', datetime.now())
+            # Ensure order_number exists (for backward compatibility)
+            if 'order_number' not in order and 'order_id' in order:
+                order['order_number'] = order['order_id']
+            
+            # Ensure address field exists
+            if 'address' not in order and 'shipping_address' in order:
+                order['address'] = order['shipping_address']
+            
+            # Ensure order_status exists
+            if 'order_status' not in order and 'status' in order:
+                order['order_status'] = order['status']
         
         return render_template('orders.html', orders=orders)
+        
     except Exception as e:
         print(f"Error loading orders: {e}")
+        import traceback
+        traceback.print_exc()
         flash('Error loading orders', 'danger')
         return render_template('orders.html', orders=[])
+
 @app.route('/order/<order_id>')
 @login_required
 def order_detail(order_id):
     try:
-        order = orders_collection.find_one({'_id': ObjectId(order_id), 'user_id': session['user_id']})
+        order = orders_collection.find_one({'_id': ObjectId(order_id), 'user_id': str(session['user_id'])})
         if not order:
             flash('Order not found', 'danger')
             return redirect(url_for('orders_page'))
@@ -620,7 +631,32 @@ def update_order_status(order_id):
             
     except Exception as e:
         print(f"Error updating order status: {e}")
-        return jsonify({'success': False, 'message': str(e)}), 500
+        return jsonify({'success': False, 'message': str(e)}), 500\
+
+@app.route('/debug-order-model')
+@login_required
+def debug_order_model():
+    """Debug route to test Order model"""
+    from models.order import Order
+    
+    user_id = session.get('user_id')
+    
+    # Test get_user_orders
+    orders = Order.get_user_orders(user_id)
+    
+    return jsonify({
+        "user_id": str(user_id),
+        "orders_count": len(orders),
+        "orders": [
+            {
+                "order_id": o.get('order_id'),
+                "order_number": o.get('order_number'),
+                "status": o.get('order_status'),
+                "total": o.get('total_amount'),
+                "created_at": str(o.get('created_at'))
+            } for o in orders
+        ]
+    })
 
 @app.route("/buy/<product_id>")
 @login_required
@@ -824,6 +860,28 @@ def wishlist_page():
         flash('Error loading wishlist', 'danger')
         return render_template('wishlist.html', wishlist=[])
 
+
+@app.route('/get-orders')
+@login_required
+def get_orders():
+    try:
+        if 'user_id' not in session:
+            return jsonify([])
+
+        user_id = str(session['user_id'])
+        
+        orders = list(db.orders.find({"user_id": user_id}))
+        
+        print(f"FROM API: Found {len(orders)} orders for user {user_id}")
+
+        for order in orders:
+            order['_id'] = str(order['_id'])
+
+        return jsonify(orders)
+        
+    except Exception as e:
+        print(f"Error in get_orders: {e}")
+        return jsonify([])
 # ============================================
 # API SESSION ROUTE
 # ============================================

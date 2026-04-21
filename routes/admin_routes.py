@@ -34,7 +34,7 @@ def admin_dashboard():
     total_orders = orders_collection.count_documents({})
     
     # Recent orders
-    recent_orders = list(orders_collection.find().sort('created_at', -1).limit(5))
+    recent_ list(orders_collection.find().sort('created_at', -1).limit(5))
     for order in recent_orders:
         order['_id'] = str(order['_id'])
     

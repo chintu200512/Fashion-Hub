@@ -103,8 +103,33 @@
             </div>
             
             <!-- Display order items -->
-            {% if order.items %}
-                {% for item in order.items %}
+            {% if orders %}
+    
+    {% for order in orders %}
+        
+        <div class="order-card">
+
+            <div class="order-header">
+                {{ order.order_number }}
+            </div>
+
+            <!-- NO LOOP HERE (IMPORTANT) -->
+            <div class="order-item">
+                <img src="{{ order.image if order.image else 'https://via.placeholder.com/80' }}">
+                
+                <div>
+                    <h5>{{ order.product_name }}</h5>
+                    <p>{{ order.quantity }} × ₹{{ order.price }}</p>
+                </div>
+            </div>
+
+        </div>
+
+    {% endfor %}
+
+{% else %}
+    <h3>No orders</h3>
+{% endif %}
                 <div class="order-item">
                     <img src="{% if item.image %}{% if item.image.startswith('http') %}{{ item.image }}{% else %}{{ url_for('static', filename='uploads/' + item.image) }}{% endif %}{% else %}https://via.placeholder.com/80?text=Product{% endif %}" 
                          alt="{{ item.product_name }}"

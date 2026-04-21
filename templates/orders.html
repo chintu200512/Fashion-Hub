@@ -27,6 +27,7 @@
     .order-number {
         font-weight: 700;
         color: #667eea;
+        font-size: 1rem;
     }
     .order-status {
         padding: 5px 15px;
@@ -44,6 +45,9 @@
         padding: 15px 0;
         border-bottom: 1px solid #f0f0f0;
     }
+    .order-item:last-child {
+        border-bottom: none;
+    }
     .order-item img {
         width: 80px;
         height: 80px;
@@ -53,9 +57,15 @@
     .order-item-info {
         flex: 1;
     }
+    .order-item-info h5 {
+        margin: 0 0 5px 0;
+        font-size: 1rem;
+    }
     .order-total {
         text-align: right;
         margin-top: 15px;
+        padding-top: 15px;
+        border-top: 2px solid #f0f0f0;
         font-weight: 700;
         font-size: 1.2rem;
         color: #e74c3c;
@@ -68,6 +78,11 @@
         text-decoration: none;
         display: inline-block;
         margin-top: 15px;
+        transition: all 0.3s ease;
+    }
+    .btn-view:hover {
+        background: #5a67d8;
+        transform: translateY(-2px);
     }
     .empty-orders {
         text-align: center;
@@ -75,17 +90,22 @@
         background: white;
         border-radius: 15px;
     }
+    .delivery-info {
+        font-size: 0.8rem;
+        color: #666;
+        margin-top: 5px;
+    }
 </style>
 
 <div class="orders-container">
     <h2 class="mb-4"><i class="fas fa-box"></i> My Orders</h2>
     
-    {% if orders and orders|length > 0 %}
+   {% if orders %}
         {% for order in orders %}
         <div class="order-card">
             <div class="order-header">
                 <div>
-                    <span class="order-number">{{ order.order_number }}</span>
+                    <span class="order-number">{{ order.order_number or order.order_id }}</span>
                     <br>
                     <small class="text-muted">
                         {% if order.created_at %}
@@ -98,44 +118,59 @@
                     </small>
                 </div>
                 <div>
-                    <span class="order-status status-{{ order.order_status }}">{{ order.order_status|upper }}</span>
+                    <span class="order-status status-{{ order.order_status or order.status }}">{{ (order.order_status or order.status)|upper }}</span>
                 </div>
             </div>
             
-            <!-- Display order items -->
-            {% if order.items %}
-                {% for item in order.items %}
+            <!-- Display order items - Multi-item order (from cart) -->
+               {% if order.get('items') %}
+               {% for item in order.get('items') %} 
                 <div class="order-item">
-                    <img src="{% if item.image %}{% if item.image.startswith('http') %}{{ item.image }}{% else %}{{ url_for('static', filename='uploads/' + item.image) }}{% endif %}{% else %}https://via.placeholder.com/80?text=Product{% endif %}" 
-                         alt="{{ item.product_name }}"
-                         onerror="this.src='https://via.placeholder.com/80?text=Product'">
+                    <img src="
+                        {% if item.image %}
+                            {% if item.image.startswith('http') %}
+                                {{ item.image }}
+                            {% else %}
+                                {{ url_for('static', filename='uploads/' + item.image) }}
+                            {% endif %}
+                        {% else %}
+                            https://via.placeholder.com/80?text=Product
+                        {% endif %}
+                    " 
+                    alt="{{ item.product_name }}"
+                    onerror="this.src='https://via.placeholder.com/80?text=Product'">
                     <div class="order-item-info">
                         <h5>{{ item.product_name }}</h5>
                         <p>Quantity: {{ item.quantity }} × ₹{{ item.price }}</p>
-                        <p class="text-muted small">Delivery to: {{ order.address[:80] }}{% if order.address and order.address|length > 80 %}...{% endif %}</p>
+                        {% if order.address %}
+                        <div class="delivery-info">
+                            <i class="fas fa-map-marker-alt"></i> {{ order.address[:100] }}{% if order.address|length > 100 %}...{% endif %}
+                        </div>
+                        {% endif %}
                     </div>
                     <div class="item-total">
-                        ₹{{ item.price * item.quantity }}
+                        ₹{{ "{:,.0f}".format(item.price * item.quantity) }}
                     </div>
                 </div>
                 {% endfor %}
-            {% else %}
-                <!-- Single item order -->
-                <div class="order-item">
-                    <img src="{% if order.image %}{% if order.image.startswith('http') %}{{ order.image }}{% else %}{{ url_for('static', filename='uploads/' + order.image) }}{% endif %}{% else %}https://via.placeholder.com/80?text=Product{% endif %}" 
-                         alt="{{ order.product_name }}"
-                         onerror="this.src='https://via.placeholder.com/80?text=Product'">
-                    <div class="order-item-info">
-                        <h5>{{ order.product_name }}</h5>
-                        <p>Quantity: {{ order.quantity }} × ₹{{ order.price }}</p>
-                        <p class="text-muted small">Delivery to: {{ order.address[:80] }}{% if order.address and order.address|length > 80 %}...{% endif %}</p>
-                    </div>
-                    <div class="item-total">
-                        ₹{{ order.total_amount }}
-                    </div>
-                </div>
-            {% endif %}
             
+            <!-- Single item order (direct buy) -->
+           {% else %}
+    <!-- single item -->
+    <div class="order-item">
+        <img src="{{ order.image if order.image else 'https://via.placeholder.com/80' }}">
+        
+        <div class="order-item-info">
+            <h5>{{ order.product_name }}</h5>
+            <p>Quantity: {{ order.quantity }} × ₹{{ order.price }}</p>
+        </div>
+
+        <div class="item-total">
+            ₹{{ order.total_amount }}
+        </div>
+    </div>
+{% endif %}
+
             <div class="order-total">
                 Total: ₹{{ "{:,.0f}".format(order.total_amount) }}
             </div>
@@ -147,6 +182,7 @@
             </div>
         </div>
         {% endfor %}
+        
     {% else %}
         <div class="empty-orders">
             <i class="fas fa-shopping-bag fa-4x mb-3 text-muted"></i>
